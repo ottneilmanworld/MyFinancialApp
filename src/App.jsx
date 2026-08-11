@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
+import Auth from './Auth'; 
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -9,7 +10,7 @@ import {
   Plus, Edit2, Trash2, ChevronDown, ChevronUp,
   TrendingUp, TrendingDown, Wallet,
   Calendar, ChevronLeft, ChevronRight,
-  Settings, Eye
+  Settings, Eye, LogOut
 } from 'lucide-react';
 
 // ==================== CONSTANTES ====================
@@ -42,23 +43,20 @@ const headerStyles = `
 // ==================== UTILIDADES ====================
 const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-const USER_ID = 'dreamteam-user-001'; // ID único del usuario (puede ser el email después)
-
 // ==================== COMPONENTES ====================
-
 const ResummarCard = ({ title, value, icon: Icon, color, bg, isHighlight = false }) => (
   <div
-    className={`flex-1 min-w-[220px] flex flex-col items-center justify-center gap-2 px-6 py-5 rounded-lg font-bold
-      transition-all hover:scale-[1.02] hover:shadow-lg cursor-default
-      ${isHighlight ? 'ring-2 ring-cyan-300' : ''}`}
-    style={{ backgroundColor: bg }}
+    className={`flex-1 min-w-[220px] flex flex-col items-center justify-center gap-3 px-8 py-6 rounded-lg font-bold
+      transition-all hover:scale-[1.02] hover:shadow-lg cursor-default border-2
+      ${isHighlight ? 'border-cyan-400 shadow-lg shadow-cyan-400/50' : 'border-gray-700'}`}
+    style={{ background: bg }}
   >
-    <Icon className="w-7 h-7" style={{ color }} />
-    <p className="text-xs uppercase tracking-widest text-black/70 font-bold">{title}</p>
-    <p className="text-3xl font-black" style={{ color }}>${value.toLocaleString()}</p>
+    <Icon className="w-10 h-10" style={{ color }} />
+    <p className="text-xs uppercase tracking-widest text-gray-300 font-bold">{title}</p>
+    <p className="text-4xl font-black" style={{ color }}>${value.toLocaleString()}</p>
   </div>
 );
-
+    
 const CategoryManager = ({ categories, show, onEdit, onDelete, onClose, title }) => {
   const [editing, setEditing] = useState(null);
   const [value, setValue] = useState('');
@@ -424,18 +422,25 @@ const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, incomeCa
 
 // ==================== APP PRINCIPAL ====================
 const DreamTeamFinanceApp = () => {
-  // Estado de mes/año
+  // 🔒 Estado de autenticación
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  
+  // 🆔 ID del usuario autenticado
+  const userId = session?.user?.id;
+
+  // Estado de fecha
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
-  // Datos
+  // Datos de la aplicación
   const [monthlyData, setMonthlyData] = useState({});
   const [incomeCategories, setIncomeCategories] = useState(INCOME_CATEGORIES);
   const [expenseCategories, setExpenseCategories] = useState(EXPENSE_CATEGORIES);
 
   // UI - Estado de carga y sincronización
   const [loading, setLoading] = useState(true);
-  const [syncStatus, setSyncStatus] = useState('synced'); // 'synced', 'pending', 'error'
+  const [syncStatus, setSyncStatus] = useState('synced');
 
   // UI - Formularios
   const [showIncomeForm, setShowIncomeForm] = useState(false);
@@ -451,7 +456,7 @@ const DreamTeamFinanceApp = () => {
   const [showIncomeDetail, setShowIncomeDetail] = useState(false);
   const [showExpenseDetail, setShowExpenseDetail] = useState(false);
 
-  // Formularios
+  // Campos de Formulario
   const [incomeForm, setIncomeForm] = useState({ category: '', amount: '', date: '', description: '' });
   const [expenseForm, setExpenseForm] = useState({ category: '', amount: '', date: '', description: '', items: [] });
   const [newExpenseItem, setNewExpenseItem] = useState({ concept: '', amount: '' });
@@ -468,14 +473,27 @@ const DreamTeamFinanceApp = () => {
   const totalExpenses = currentMonthData.expenses.reduce((sum, e) => sum + e.amount, 0);
   const available = totalIncome - totalExpenses;
 
-  // ==================== FUNCIONES DE SINCRONIZACIÓN ====================
+  // 🔒 Verificar autenticación al iniciar
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
 
-  // 📥 CARGAR datos: primero del localStorage, luego de Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    return () => subscription?.unsubscribe();
+  }, []);
+
+  // ==================== FUNCIONES DE SINCRONIZACIÓN ====================
   const loadData = async () => {
+    if (!userId) return;
     setLoading(true);
     try {
-      // Paso 1: Cargar del localStorage (backup local)
-      const localData = localStorage.getItem('dreamteam-data');
+      const localData = localStorage.getItem(`dreamteam-data-${userId}`);
       if (localData) {
         try {
           setMonthlyData(JSON.parse(localData));
@@ -484,28 +502,24 @@ const DreamTeamFinanceApp = () => {
         }
       }
 
-      // Paso 2: Si hay wifi, descargar datos de Supabase
-      try {
-        const { data, error } = await supabase
-          .from('monthlydata')
-          .select('*')
-          .eq('user_id', USER_ID)
-          .single();
+      const { data, error } = await supabase
+        .from('monthlydata')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-        if (data && data.data) {
-          setMonthlyData(data.data);
-          // Actualizar localStorage con datos más nuevos de la nube
-          localStorage.setItem('dreamteam-data', JSON.stringify(data.data));
-          setSyncStatus('synced');
-        }
-      } catch (err) {
-        // Si no hay wifi o no hay datos en la nube, usa localStorage
-        console.log('Sin conexión o sin datos en Supabase, usando datos locales');
-        if (localData) {
-          setSyncStatus('pending'); // Hay datos locales pendientes de sincronizar
-        } else {
-          setSyncStatus('synced'); // Sin datos en ningún lado
-        }
+      if (error) {
+        console.error('Error de Supabase:', error.message);
+        setSyncStatus(localData ? 'pending' : 'error');
+        return;
+      }
+
+      if (data && data.data) {
+        setMonthlyData(data.data);
+        localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(data.data));
+        setSyncStatus('synced');
+      } else {
+        setSyncStatus('synced');
       }
     } catch (err) {
       console.error('Error cargando datos:', err);
@@ -515,35 +529,37 @@ const DreamTeamFinanceApp = () => {
     }
   };
 
-  // 📤 GUARDAR datos: primero en localStorage, luego en Supabase
   const updateMonthlyData = async (newData) => {
-    // Paso 1: Guardar EN EL CELULAR de inmediato (offline)
+    if (!userId) return;
     setMonthlyData(newData);
-    localStorage.setItem('dreamteam-data', JSON.stringify(newData));
-    setSyncStatus('pending'); // "Guardando..."
+    localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(newData));
+    setSyncStatus('pending');
 
-    // Paso 2: Si hay wifi, enviar a Supabase
     try {
-      await supabase
+      const { error } = await supabase
         .from('monthlydata')
         .upsert({
-          id: USER_ID,
-          user_id: USER_ID,
+          id: userId,
+          user_id: userId,
           data: newData,
           updated_at: new Date().toISOString()
         });
-      setSyncStatus('synced'); // "¡Sincronizado!"
+
+      if (error) {
+        console.error('Error guardando en Supabase:', error.message);
+        setSyncStatus('error');
+      } else {
+        setSyncStatus('synced');
+      }
     } catch (err) {
-      console.error('Error sincronizando con Supabase:', err);
+      console.error('Error sincronizando:', err);
       setSyncStatus('error');
-      // ⚠️ Los datos YA están en localStorage, así que no se pierden
-      console.log('Sin conexión, pero datos guardados en el celular ✓');
     }
   };
 
-  // 📶 Sincronizar cuando vuelve el wifi
   const syncWhenOnline = async () => {
-    const localData = localStorage.getItem('dreamteam-data');
+    if (!userId) return;
+    const localData = localStorage.getItem(`dreamteam-data-${userId}`);
     if (localData && syncStatus !== 'synced') {
       try {
         await updateMonthlyData(JSON.parse(localData));
@@ -553,26 +569,45 @@ const DreamTeamFinanceApp = () => {
     }
   };
 
-  // Al iniciar la app, cargar datos
+  // Cargar datos cuando userId cambie
   useEffect(() => {
-    loadData();
+    if (userId) {
+      loadData();
+    }
+  }, [userId]);
 
-    // Cuando vuelve el wifi, sincronizar
+  // Escuchar cambios de conexión
+  useEffect(() => {
     window.addEventListener('online', syncWhenOnline);
     return () => window.removeEventListener('online', syncWhenOnline);
-  }, []);
+  }, [userId, syncStatus]);
 
-  // Navegación de meses
-  const navigateMonth = (dir) => {
-    let m = currentMonth, y = currentYear;
-    if (dir === 'prev') {
-      if (m === 0) { m = 11; y--; } else m--;
-    } else {
-      if (m === 11) { m = 0; y++; } else m++;
-    }
-    setCurrentMonth(m);
-    setCurrentYear(y);
-  };
+  // ==================== VISTAS DE ESTADO ====================
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-2xl font-bold mb-4">Verificando autenticación...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-400 mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-2xl font-bold mb-4">Cargando datos...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-400 mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
 
   // ==================== FUNCIONES INGRESOS ====================
   const handleAddIncome = async () => {
@@ -712,11 +747,10 @@ const DreamTeamFinanceApp = () => {
     });
   };
 
-  // ==================== FUNCIONES ITEMS DE GASTOS ====================
+  // ==================== FUNCIONES ITEMS ====================
   const addExpenseItem = () => {
     if (newExpenseItem.concept && newExpenseItem.amount) {
       if (editingItemIdx !== null) {
-        // Editar item existente
         const updatedItems = [...(expenseForm.items || [])];
         updatedItems[editingItemIdx] = {
           ...newExpenseItem,
@@ -725,7 +759,6 @@ const DreamTeamFinanceApp = () => {
         setExpenseForm({ ...expenseForm, items: updatedItems });
         setEditingItemIdx(null);
       } else {
-        // Agregar nuevo item
         setExpenseForm({
           ...expenseForm,
           items: [...(expenseForm.items || []), {
@@ -825,44 +858,52 @@ const DreamTeamFinanceApp = () => {
     setExpenseCategories(expenseCategories.filter(c => c !== cat));
   };
 
-  // ==================== RENDER ====================
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-2xl font-bold mb-4">Cargando datos...</p>
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-400 mx-auto"></div>
-        </div>
-      </div>
-    );
-  }
+  const navigateMonth = (dir) => {
+    let m = currentMonth, y = currentYear;
+    if (dir === 'prev') {
+      if (m === 0) { m = 11; y--; } else m--;
+    } else {
+      if (m === 11) { m = 0; y++; } else m++;
+    }
+    setCurrentMonth(m);
+    setCurrentYear(y);
+  };
 
+  // ==================== RENDER ====================
   return (
     <div className="min-h-screen bg-black text-white font-inter">
       <style>{headerStyles}</style>
 
       {/* Indicador de sincronización */}
-      <div className="fixed top-4 right-4 text-sm font-semibold z-40 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700">
-        {syncStatus === 'synced' && <span className="text-green-400 flex items-center gap-1">✅ Sincronizado</span>}
-        {syncStatus === 'pending' && <span className="text-yellow-400 flex items-center gap-1">⏳ Guardando...</span>}
-        {syncStatus === 'error' && <span className="text-red-400 flex items-center gap-1">⚠️ Offline (local)</span>}
+      <div className="fixed top-4 right-4 text-sm font-semibold z-40 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 flex items-center gap-2">
+        {syncStatus === 'synced' && <span className="text-green-400">✅ Sincronizado</span>}
+        {syncStatus === 'pending' && <span className="text-yellow-400">⏳ Guardando...</span>}
+        {syncStatus === 'error' && <span className="text-red-400">⚠️ Offline (local)</span>}
+        <button
+          onClick={() => supabase.auth.signOut()}
+          className="ml-2 text-gray-400 hover:text-gray-200 transition-colors"
+          title="Cerrar sesión"
+        >
+          <LogOut size={16} />
+        </button>
       </div>
-
-      {/* Header */}
+      
+      {/* Header */}     
       <header className="static-header p-8 shadow-lg">
         <div className="max-w-7xl mx-auto text-center w-full">
           <h1 className="text-5xl font-black text-white tracking-wide" style={{ textShadow: '3px 3px 6px rgba(0,0,0,0.8)' }}>
-            DREAMTEAM
+            My Finance App
           </h1>
           <p className="text-white text-xl mt-2 font-bold subtitle-text-shadow">
             Gestor de Finanzas Personales
           </p>
           <p className="text-lg mt-2 font-semibold author-text-glow">By Otto N. Manrique</p>
+          <p className="text-gray-300 text-sm mt-2">Usuario: {session?.user?.email}</p>
         </div>
       </header>
 
       <div className="max-w-7xl mx-auto p-6 space-y-8">
-        {/* Navegación de Meses - Responsive */}
+        {/* Navegación de Meses */}
         <div className="bg-gray-900 p-3 sm:p-4 rounded-xl shadow-lg border-2" style={{ borderColor: FLUORESCENT_GREEN }}>
           <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
             <button
@@ -901,27 +942,27 @@ const DreamTeamFinanceApp = () => {
           </div>
         </div>
 
-        {/* Tarjetas de Resumen - GRANDES */}
+        {/* Tarjetas de Resumen */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 min-h-[220px]">
           <ResummarCard
             title="Ingresos Totales"
             value={totalIncome}
             icon={TrendingUp}
-            color="text-green-400"
+            color="#00FF00"
             bg="linear-gradient(135deg, #1F3A1F, #2D5A2D)"
           />
           <ResummarCard
             title="Gastos Totales"
             value={totalExpenses}
             icon={TrendingDown}
-            color="text-red-400"
+            color="#FF073A"
             bg="linear-gradient(135deg, #3A1F1F, #5A2D2D)"
           />
           <ResummarCard
             title="Disponible"
             value={available}
             icon={Wallet}
-            color={available >= 0 ? 'text-cyan-400' : 'text-pink-400'}
+            color={available >= 0 ? '#00FFFF' : '#FF00FF'}
             bg="linear-gradient(135deg, #1F3A3A, #2D5A5A)"
             isHighlight={true}
           />
@@ -935,7 +976,7 @@ const DreamTeamFinanceApp = () => {
           incomeCategories={incomeCategories}
         />
 
-        {/* Sección de Ingresos */}
+        {/* SECCIÓN DE INGRESOS */}
         <div className="bg-gray-900 p-6 rounded-xl shadow-lg border-2" style={{ borderColor: FLUORESCENT_GREEN }}>
           <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
             <h3 className="text-2xl font-bold" style={{ color: FLUORESCENT_GREEN }}>
@@ -1075,14 +1116,14 @@ const DreamTeamFinanceApp = () => {
                       <button 
                         onClick={() => handleEditIncome(inc)} 
                         className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/20 p-2 rounded transition-colors"
-                        title="Editar ingreso"
+                        title="Editar"
                       >
                         <Edit2 size={18} />
                       </button>
                       <button 
                         onClick={() => handleDeleteIncome(inc.id)} 
                         className="text-red-400 hover:text-red-300 hover:bg-red-500/20 p-2 rounded transition-colors"
-                        title="Eliminar ingreso"
+                        title="Eliminar"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -1096,7 +1137,7 @@ const DreamTeamFinanceApp = () => {
           </div>
         </div>
 
-        {/* Sección de Gastos */}
+        {/* SECCIÓN DE GASTOS */}
         <div className="bg-gray-900 p-6 rounded-xl shadow-lg border-2 border-red-500">
           <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
             <h3 className="text-2xl font-bold" style={{ color: VIVID_RED }}>
@@ -1199,12 +1240,12 @@ const DreamTeamFinanceApp = () => {
 
               <div className="border-t border-gray-700 pt-4">
                 <p className="text-sm text-gray-300 font-semibold mb-3">
-                  Detalles del gasto (opcional){editingItemIdx !== null && <span className="text-cyan-400"> — editando item</span>}:
+                  Detalles del gasto (opcional){editingItemIdx !== null && <span className="text-cyan-400"> — editando</span>}:
                 </p>
                 <div className="flex gap-2 flex-wrap mb-3">
                   <input
                     type="text"
-                    placeholder="Concepto/Descripción (ej: Leche, Pan...)"
+                    placeholder="Concepto (ej: Leche, Pan...)"
                     value={newExpenseItem.concept}
                     onChange={e => setNewExpenseItem({ ...newExpenseItem, concept: e.target.value })}
                     className="flex-1 bg-gray-600 text-white px-3 py-2 rounded border border-gray-500 min-w-[200px] text-sm"
@@ -1220,7 +1261,7 @@ const DreamTeamFinanceApp = () => {
                     onClick={addExpenseItem}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold"
                   >
-                    {editingItemIdx !== null ? 'Actualizar item' : 'Añadir Item'}
+                    {editingItemIdx !== null ? 'Actualizar' : 'Agregar'}
                   </button>
                   {editingItemIdx !== null && (
                     <button
@@ -1235,27 +1276,23 @@ const DreamTeamFinanceApp = () => {
                 {expenseForm.items && expenseForm.items.length > 0 && (
                   <div className="bg-gray-700 p-3 rounded space-y-2 mb-3 border border-gray-600">
                     <div className="flex justify-between items-center pb-2 border-b border-gray-600">
-                      <p className="text-gray-300 font-semibold text-sm">Items agregados ({expenseForm.items.length})</p>
+                      <p className="text-gray-300 font-semibold text-sm">Items ({expenseForm.items.length})</p>
                       <p className="text-cyan-400 font-bold">Total: ${expenseForm.items.reduce((s, i) => s + parseFloat(i.amount || 0), 0).toLocaleString()}</p>
                     </div>
                     {expenseForm.items.map((item, idx) => (
                       <div key={idx} className={`flex justify-between items-center p-2 rounded text-sm ${editingItemIdx === idx ? 'bg-cyan-900/40 ring-1 ring-cyan-400' : 'bg-gray-800'}`}>
-                        <div className="flex-1">
-                          <span className="text-gray-200 font-medium">{item.concept}</span>
-                        </div>
+                        <span className="text-gray-200 font-medium flex-1">{item.concept}</span>
                         <div className="flex items-center gap-3">
                           <span className="text-cyan-400 font-semibold">${item.amount.toLocaleString()}</span>
                           <button
                             onClick={() => startEditExpenseItem(idx)}
-                            className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/20 p-1 rounded"
-                            title="Editar item"
+                            className="text-cyan-400 hover:text-cyan-300 p-1"
                           >
                             <Edit2 size={15} />
                           </button>
                           <button
                             onClick={() => removeExpenseItem(idx)}
-                            className="text-red-400 hover:text-red-300 hover:bg-red-500/20 px-2 py-1 rounded text-lg font-bold"
-                            title="Eliminar item"
+                            className="text-red-400 hover:text-red-300 px-2 font-bold"
                           >
                             ×
                           </button>
@@ -1299,7 +1336,7 @@ const DreamTeamFinanceApp = () => {
                         <span className="text-red-400 font-bold text-lg">${exp.amount.toLocaleString()}</span>
                         {exp.items && exp.items.length > 0 && (
                           <span className="bg-cyan-600/30 text-cyan-400 text-xs px-2 py-1 rounded">
-                            {exp.items.length} {exp.items.length === 1 ? 'item' : 'items'}
+                            {exp.items.length} items
                           </span>
                         )}
                       </div>
@@ -1311,15 +1348,13 @@ const DreamTeamFinanceApp = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleEditExpense(exp)}
-                        className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/20 p-2 rounded transition-colors"
-                        title="Editar gasto"
+                        className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/20 p-2 rounded"
                       >
                         <Edit2 size={18} />
                       </button>
                       <button
                         onClick={() => handleDeleteExpense(exp.id)}
-                        className="text-red-400 hover:text-red-300 hover:bg-red-500/20 p-2 rounded transition-colors"
-                        title="Eliminar gasto"
+                        className="text-red-400 hover:text-red-300 hover:bg-red-500/20 p-2 rounded"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -1349,7 +1384,7 @@ const DreamTeamFinanceApp = () => {
         </div>
       </div>
 
-      {/* Modales de Detalle */}
+      {/* MODALES */}
       <DetailModal
         isOpen={showIncomeDetail}
         title={`Ingresos - ${monthNames[currentMonth]} ${currentYear}`}
@@ -1368,7 +1403,7 @@ const DreamTeamFinanceApp = () => {
 
       {/* Footer */}
       <footer className="bg-gray-900 p-6 text-center text-gray-500 text-sm mt-8 border-t border-gray-800">
-        <p>&copy; {new Date().getFullYear()} DreamTeam Finance. Todos los derechos reservados.</p>
+        <p>&copy; {new Date().getFullYear()} My Finance App. Todos los derechos reservados.</p>
       </footer>
     </div>
   );

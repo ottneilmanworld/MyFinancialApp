@@ -53,16 +53,10 @@ git push -u origin main
 3. Framework preset: **Vite**. Build command: `npm run build`. Output: `dist`.
 4. Deploy. En minutos tienes una URL pública.
 
-## 6. Cuándo pasar a Firebase (no antes)
+## 6. Base de datos y Autenticación con Supabase
 
-Mientras la app viva solo en tu navegador (localStorage), es de un solo
-usuario y un solo dispositivo — perfecta para validar el MVP contigo mismo.
-El día que quieras venderla a otras personas necesitas, como mínimo:
+La app utiliza **Supabase** para gestionar la autenticación de usuarios y la persistencia de datos en la nube:
 
-- **Auth** (login por email o Google) para que cada quien vea solo sus datos.
-- **Base de datos en la nube** (Firestore, o Supabase/Postgres) para que los
-  datos sobrevivan a un cambio de dispositivo o borrar caché.
-- **Reglas de seguridad** para que un usuario no pueda leer los datos de otro.
-
-No lo hagas antes de tener el flujo de captura pulido: es trabajo de backend
-que no cambia si el usuario logra registrar un gasto en 5 segundos o en 30.
+- **Auth**: Gestión de usuarios y sesiones activas.
+- **PostgreSQL Database**: Almacenamiento persistente de ingresos, gastos y presupuestos por usuario.
+- **Row Level Security (RLS)**: Políticas de seguridad para aislar los datos de cada usuario.
