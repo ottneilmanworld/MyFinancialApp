@@ -12,19 +12,9 @@ import {
   Calendar, ChevronLeft, ChevronRight,
   Settings, Eye, LogOut
 } from 'lucide-react';
-
-// ==================== CONSTANTES ====================
-const FLUORESCENT_GREEN = '#39FF14';
-const FLUORESCENT_RED = '#FF073A';
-const VIVID_RED = '#DC2626';
-
-const INCOME_CATEGORIES = ['Salario', 'Comisiones', 'Alquiler', 'Ingresos Pasivos de Inversiones', 'Negocios Online', 'Negocios Offline'];
-const EXPENSE_CATEGORIES = ['Vivienda', 'Transporte', 'Alimentación', 'Entretenimiento', 'Servicios', 'Otros Gastos'];
-
-const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-
-const COLORS = ['#FF00FF', '#00FFFF', '#00FF00', '#FF4500', '#8A2BE2', '#F59E0B', '#10B981', '#3B82F6'];
+import { useFinanceData } from './hooks/useFinanceData';
+import { FLUORESCENT_GREEN, FLUORESCENT_RED, VIVID_RED, INCOME_CATEGORIES, EXPENSE_CATEGORIES, monthNames, COLORS } from './utils/constants';
+import { generateId, getMonthKey } from './utils/formatters';
 
 const headerStyles = `
   .static-header {
@@ -39,9 +29,6 @@ const headerStyles = `
     text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
   }
 `;
-
-// ==================== UTILIDADES ====================
-const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 // ==================== COMPONENTES ====================
 const ResummarCard = ({ title, value, icon: Icon, color, bg, isHighlight = false }) => (
@@ -425,7 +412,7 @@ const DreamTeamFinanceApp = () => {
   // 🔒 Estado de autenticación
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  
+
   // 🆔 ID del usuario autenticado
   const userId = session?.user?.id;
 
@@ -433,14 +420,17 @@ const DreamTeamFinanceApp = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
-  // Datos de la aplicación
-  const [monthlyData, setMonthlyData] = useState({});
-  const [incomeCategories, setIncomeCategories] = useState(INCOME_CATEGORIES);
-  const [expenseCategories, setExpenseCategories] = useState(EXPENSE_CATEGORIES);
-
-  // UI - Estado de carga y sincronización
-  const [loading, setLoading] = useState(true);
-  const [syncStatus, setSyncStatus] = useState('synced');
+  // Datos y sincronización: ahora vienen del hook useFinanceData
+  // (antes esta lógica vivía aquí mismo, duplicada y mezclada con la UI)
+  const {
+    monthlyData,
+    incomeCategories,
+    expenseCategories,
+    loading,
+    syncStatus,
+    updateMonthlyData,
+    persistAll,
+  } = useFinanceData(userId);
 
   // UI - Formularios
   const [showIncomeForm, setShowIncomeForm] = useState(false);
@@ -465,7 +455,9 @@ const DreamTeamFinanceApp = () => {
   const [editingItemIdx, setEditingItemIdx] = useState(null);
 
   // Datos del mes actual
-  const monthKey = `${currentYear}-${currentMonth}`;
+  // FIX: antes era `${currentYear}-${currentMonth}` (generaba "2026-0" para Enero).
+  // Ahora usamos getMonthKey, que genera "2026-01" (formato correcto y ordenable).
+  const monthKey = getMonthKey(currentYear, currentMonth);
   const currentMonthData = monthlyData[monthKey] || { incomes: [], expenses: [] };
 
   // Totales
@@ -487,135 +479,6 @@ const DreamTeamFinanceApp = () => {
 
     return () => subscription?.unsubscribe();
   }, []);
-
-  // ==================== FUNCIONES DE SINCRONIZACIÓN ====================
-  // FIX: antes solo se guardaba `monthlyData`. Las categorías vivían solo en
-  // useState y se perdían al recargar/cerrar sesión. Ahora el payload que se
-  // sincroniza incluye meses + categorías, con compatibilidad hacia atrás
-  // para leer el formato viejo que ya está guardado en tu tabla.
-  const parseStoredPayload = (raw) => {
-    if (!raw) return { months: {}, incomeCategories: INCOME_CATEGORIES, expenseCategories: EXPENSE_CATEGORIES };
-    if (raw.months) {
-      // Formato nuevo
-      return {
-        months: raw.months || {},
-        incomeCategories: raw.incomeCategories || INCOME_CATEGORIES,
-        expenseCategories: raw.expenseCategories || EXPENSE_CATEGORIES,
-      };
-    }
-    // Formato viejo: `raw` ES el objeto de meses directamente (sin wrapper)
-    return { months: raw, incomeCategories: INCOME_CATEGORIES, expenseCategories: EXPENSE_CATEGORIES };
-  };
-
-  const loadData = async () => {
-    if (!userId) return;
-    setLoading(true);
-    try {
-      const localRaw = localStorage.getItem(`dreamteam-data-${userId}`);
-      if (localRaw) {
-        try {
-          const parsed = parseStoredPayload(JSON.parse(localRaw));
-          setMonthlyData(parsed.months);
-          setIncomeCategories(parsed.incomeCategories);
-          setExpenseCategories(parsed.expenseCategories);
-        } catch (err) {
-          console.error('Error parseando localStorage:', err);
-        }
-      }
-
-      const { data, error } = await supabase
-        .from('monthlydata')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error de Supabase:', error.message);
-        setSyncStatus(localRaw ? 'pending' : 'error');
-        return;
-      }
-
-      if (data && data.data) {
-        const parsed = parseStoredPayload(data.data);
-        setMonthlyData(parsed.months);
-        setIncomeCategories(parsed.incomeCategories);
-        setExpenseCategories(parsed.expenseCategories);
-        localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(parsed.months ? { months: parsed.months, incomeCategories: parsed.incomeCategories, expenseCategories: parsed.expenseCategories } : {}));
-        setSyncStatus('synced');
-      } else {
-        setSyncStatus('synced');
-      }
-    } catch (err) {
-      console.error('Error cargando datos:', err);
-      setSyncStatus('error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // persistAll: única puerta de guardado. Guarda meses Y categorías juntos.
-  const persistAll = async (newMonths = monthlyData, newIncomeCategories = incomeCategories, newExpenseCategories = expenseCategories) => {
-    if (!userId) return;
-    setMonthlyData(newMonths);
-    setIncomeCategories(newIncomeCategories);
-    setExpenseCategories(newExpenseCategories);
-
-    const payload = { months: newMonths, incomeCategories: newIncomeCategories, expenseCategories: newExpenseCategories };
-    localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(payload));
-    setSyncStatus('pending');
-
-    try {
-      const { error } = await supabase
-        .from('monthlydata')
-        .upsert({
-          id: userId,
-          user_id: userId,
-          data: payload,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) {
-        console.error('Error guardando en Supabase:', error.message);
-        setSyncStatus('error');
-      } else {
-        setSyncStatus('synced');
-      }
-    } catch (err) {
-      console.error('Error sincronizando:', err);
-      setSyncStatus('error');
-    }
-  };
-
-  // Se mantiene el nombre para no tocar cada handler de ingresos/gastos existente.
-  const updateMonthlyData = async (newData) => {
-    await persistAll(newData, incomeCategories, expenseCategories);
-  };
-
-  const syncWhenOnline = async () => {
-    if (!userId) return;
-    const localRaw = localStorage.getItem(`dreamteam-data-${userId}`);
-    if (localRaw && syncStatus !== 'synced') {
-      try {
-        const parsed = parseStoredPayload(JSON.parse(localRaw));
-        await persistAll(parsed.months, parsed.incomeCategories, parsed.expenseCategories);
-      } catch (err) {
-        console.error('Error en sincronización:', err);
-      }
-    }
-  };
-
-  // Cargar datos cuando userId cambie
-  useEffect(() => {
-    if (userId) {
-      loadData();
-    }
-  }, [userId]);
-
-  // Escuchar cambios de conexión
-  useEffect(() => {
-    window.addEventListener('online', syncWhenOnline);
-    return () => window.removeEventListener('online', syncWhenOnline);
-  }, [userId, syncStatus]);
 
   // ==================== VISTAS DE ESTADO ====================
   if (authLoading) {
