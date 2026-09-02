@@ -17,6 +17,8 @@ import { FLUORESCENT_GREEN, VIVID_RED, INCOME_CATEGORIES, EXPENSE_CATEGORIES, mo
 import { generateId, getMonthKey, formatCurrency } from './utils/formatters';
 import { ResummarCard } from './components/SummaryCard';
 import { CategoryManager } from './components/CategoryManager';
+import { BudgetManager } from './components/BudgetManager';
+import { BudgetProgress } from './components/BudgetProgress';
 import { DetailModal } from './components/DetailModal';
 import { GraphsCollapsible } from './components/GraphsCollapsible';
 
@@ -41,10 +43,12 @@ const DreamTeamFinanceApp = () => {
     incomeCategories,
     expenseCategories,
     currency,
+    budgets,
     loading,
     syncStatus,
     updateMonthlyData,
     updateCurrency,
+    updateBudgets,
     persistAll,
   } = useFinanceData(userId);
 
@@ -55,6 +59,7 @@ const DreamTeamFinanceApp = () => {
   const [showExpenseCategoryForm, setShowExpenseCategoryForm] = useState(false);
   const [showIncomeCategoryManager, setShowIncomeCategoryManager] = useState(false);
   const [showExpenseCategoryManager, setShowExpenseCategoryManager] = useState(false);
+  const [showBudgetManager, setShowBudgetManager] = useState(false);
   const [editingIncome, setEditingIncome] = useState(null);
   const [editingExpense, setEditingExpense] = useState(null);
 
@@ -681,6 +686,12 @@ const DreamTeamFinanceApp = () => {
                 <Settings size={18} /> Gestionar
               </button>
               <button
+                onClick={() => setShowBudgetManager(!showBudgetManager)}
+                className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
+              >
+                <Settings size={18} /> Presupuestos
+              </button>
+              <button
                 onClick={() => setShowExpenseCategoryForm(!showExpenseCategoryForm)}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
               >
@@ -708,6 +719,21 @@ const DreamTeamFinanceApp = () => {
             onDelete={handleDeleteExpenseCategory}
             onClose={() => setShowExpenseCategoryManager(false)}
             title="Gestionar Categorías de Gastos"
+          />
+
+          <BudgetManager
+            show={showBudgetManager}
+            expenseCategories={expenseCategories}
+            budgets={budgets}
+            onSave={updateBudgets}
+            onClose={() => setShowBudgetManager(false)}
+          />
+
+          <BudgetProgress
+            expenses={currentMonthData.expenses}
+            expenseCategories={expenseCategories}
+            budgets={budgets}
+            currency={currency}
           />
 
           {showExpenseCategoryForm && (

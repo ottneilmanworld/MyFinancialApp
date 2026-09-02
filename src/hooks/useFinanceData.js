@@ -8,6 +8,7 @@ export const useFinanceData = (userId) => {
   const [incomeCategories, setIncomeCategories] = useState(INCOME_CATEGORIES);
   const [expenseCategories, setExpenseCategories] = useState(EXPENSE_CATEGORIES);
   const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
+  const [budgets, setBudgets] = useState({});
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState('synced');
 
@@ -43,6 +44,7 @@ export const useFinanceData = (userId) => {
         incomeCategories: INCOME_CATEGORIES,
         expenseCategories: EXPENSE_CATEGORIES,
         currency: DEFAULT_CURRENCY,
+        budgets: {},
       };
     }
     if (raw.months) {
@@ -51,6 +53,7 @@ export const useFinanceData = (userId) => {
         incomeCategories: raw.incomeCategories || INCOME_CATEGORIES,
         expenseCategories: raw.expenseCategories || EXPENSE_CATEGORIES,
         currency: raw.currency || DEFAULT_CURRENCY,
+        budgets: raw.budgets || {},
       };
     }
     // Formato viejo: `raw` ES el objeto de meses directamente (sin wrapper)
@@ -59,6 +62,7 @@ export const useFinanceData = (userId) => {
       incomeCategories: INCOME_CATEGORIES,
       expenseCategories: EXPENSE_CATEGORIES,
       currency: DEFAULT_CURRENCY,
+      budgets: {},
     };
   };
 
@@ -75,6 +79,7 @@ export const useFinanceData = (userId) => {
           setIncomeCategories(parsed.incomeCategories);
           setExpenseCategories(parsed.expenseCategories);
           setCurrency(parsed.currency);
+          setBudgets(parsed.budgets);
         } catch (err) {
           console.error('Error parseando localStorage:', err);
         }
@@ -88,6 +93,7 @@ export const useFinanceData = (userId) => {
         setIncomeCategories(parsed.incomeCategories);
         setExpenseCategories(parsed.expenseCategories);
         setCurrency(parsed.currency);
+        setBudgets(parsed.budgets);
         localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(parsed));
         await financeService.saveUserData(userId, parsed);
         setSyncStatus('synced');
@@ -106,19 +112,22 @@ export const useFinanceData = (userId) => {
     newMonths = monthlyData,
     newIncomeCategories = incomeCategories,
     newExpenseCategories = expenseCategories,
-    newCurrency = currency
+    newCurrency = currency,
+    newBudgets = budgets
   ) => {
     if (!userId) return;
     setMonthlyData(newMonths);
     setIncomeCategories(newIncomeCategories);
     setExpenseCategories(newExpenseCategories);
     setCurrency(newCurrency);
+    setBudgets(newBudgets);
 
     const payload = {
       months: newMonths,
       incomeCategories: newIncomeCategories,
       expenseCategories: newExpenseCategories,
       currency: newCurrency,
+      budgets: newBudgets,
     };
     localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(payload));
     setSyncStatus('pending');
@@ -133,11 +142,15 @@ export const useFinanceData = (userId) => {
   };
 
   const updateMonthlyData = async (newData) => {
-    await persistAll(newData, incomeCategories, expenseCategories, currency);
+    await persistAll(newData, incomeCategories, expenseCategories, currency, budgets);
   };
 
   const updateCurrency = async (newCurrency) => {
-    await persistAll(monthlyData, incomeCategories, expenseCategories, newCurrency);
+    await persistAll(monthlyData, incomeCategories, expenseCategories, newCurrency, budgets);
+  };
+
+  const updateBudgets = async (newBudgets) => {
+    await persistAll(monthlyData, incomeCategories, expenseCategories, currency, newBudgets);
   };
 
   const syncWhenOnline = useCallback(async () => {
@@ -146,7 +159,7 @@ export const useFinanceData = (userId) => {
     if (localRaw && syncStatus !== 'synced') {
       try {
         const parsed = parseStoredPayload(JSON.parse(localRaw));
-        await persistAll(parsed.months, parsed.incomeCategories, parsed.expenseCategories, parsed.currency);
+        await persistAll(parsed.months, parsed.incomeCategories, parsed.expenseCategories, parsed.currency, parsed.budgets);
       } catch (err) {
         console.error('Error en sincronización:', err);
       }
@@ -167,10 +180,12 @@ export const useFinanceData = (userId) => {
     incomeCategories,
     expenseCategories,
     currency,
+    budgets,
     loading,
     syncStatus,
     updateMonthlyData,
     updateCurrency,
+    updateBudgets,
     persistAll,
   };
 };
