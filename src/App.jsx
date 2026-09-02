@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
-import Auth from './Auth'; 
+import Auth from './components/Auth';
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -13,28 +13,13 @@ import {
   Settings, Eye, LogOut
 } from 'lucide-react';
 import { useFinanceData } from './hooks/useFinanceData';
-import { FLUORESCENT_GREEN, FLUORESCENT_RED, VIVID_RED, INCOME_CATEGORIES, EXPENSE_CATEGORIES, monthNames } from './utils/constants';
+import { FLUORESCENT_GREEN, VIVID_RED, INCOME_CATEGORIES, EXPENSE_CATEGORIES, monthNames } from './utils/constants';
 import { generateId, getMonthKey } from './utils/formatters';
 import { ResummarCard } from './components/SummaryCard';
 import { CategoryManager } from './components/CategoryManager';
 import { DetailModal } from './components/DetailModal';
 import { GraphsCollapsible } from './components/GraphsCollapsible';
 
-const headerStyles = `
-  .static-header {
-    background: linear-gradient(90deg, #000000 0%, ${FLUORESCENT_GREEN} 50%, #000000 100%);
-    background-size: 100% 100%;
-  }
-  .author-text-glow {
-    color: white;
-    text-shadow: 1px 1px 2px black, 0 0 10px ${FLUORESCENT_GREEN}, 0 0 20px ${FLUORESCENT_RED};
-  }
-  .subtitle-text-shadow {
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-  }
-`;
-
-// ==================== COMPONENTES ====================
 
 // ==================== APP PRINCIPAL ====================
 const DreamTeamFinanceApp = () => {
@@ -402,7 +387,6 @@ const DreamTeamFinanceApp = () => {
   // ==================== RENDER ====================
   return (
     <div className="min-h-screen bg-black text-white font-inter">
-      <style>{headerStyles}</style>
 
       {/* Indicador de sincronización */}
       <div className="fixed top-4 right-4 text-sm font-semibold z-40 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 flex items-center gap-2">
