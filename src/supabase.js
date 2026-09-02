@@ -1,7 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Reemplaza AQUÍ con los valores que copiaste en PASO 4
-const SUPABASE_URL = 'https://kiebkuplbctqynroppcr.supabase.co'; // Tu Project URL
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZWJrdXBsYmN0cXlucm9wcGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyMTMzNjMsImV4cCI6MjEwMTc4OTM2M30.oDvHknnaeIzkInH6VF8oa3CH8BPMXAriGKSstWtCG3Y'; // Tu anon public key
+// Las llaves ahora viven en variables de entorno (.env, ignorado por git),
+// no en el código fuente. Ver .env.example para la plantilla.
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error(
+    'Faltan VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY. Copia .env.example a .env y completa tus valores.'
+  );
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

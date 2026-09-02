@@ -5,3 +5,16 @@
 body {
   font-family: 'Inter', system-ui, sans-serif;
 }
+
+/* Estilos del encabezado (antes se inyectaban en cada render desde App.jsx) */
+.static-header {
+  background: linear-gradient(90deg, #000000 0%, #39FF14 50%, #000000 100%);
+  background-size: 100% 100%;
+}
+.author-text-glow {
+  color: white;
+  text-shadow: 1px 1px 2px black, 0 0 10px #39FF14, 0 0 20px #FF073A;
+}
+.subtitle-text-shadow {
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+}

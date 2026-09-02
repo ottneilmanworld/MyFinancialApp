@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
-import Auth from './Auth'; 
+import Auth from './components/Auth';
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -12,420 +12,21 @@ import {
   Calendar, ChevronLeft, ChevronRight,
   Settings, Eye, LogOut
 } from 'lucide-react';
+import { useFinanceData } from './hooks/useFinanceData';
+import { FLUORESCENT_GREEN, VIVID_RED, INCOME_CATEGORIES, EXPENSE_CATEGORIES, monthNames } from './utils/constants';
+import { generateId, getMonthKey } from './utils/formatters';
+import { ResummarCard } from './components/SummaryCard';
+import { CategoryManager } from './components/CategoryManager';
+import { DetailModal } from './components/DetailModal';
+import { GraphsCollapsible } from './components/GraphsCollapsible';
 
-// ==================== CONSTANTES ====================
-const FLUORESCENT_GREEN = '#39FF14';
-const FLUORESCENT_RED = '#FF073A';
-const VIVID_RED = '#DC2626';
-
-const INCOME_CATEGORIES = ['Salario', 'Comisiones', 'Alquiler', 'Ingresos Pasivos de Inversiones', 'Negocios Online', 'Negocios Offline'];
-const EXPENSE_CATEGORIES = ['Vivienda', 'Transporte', 'Alimentación', 'Entretenimiento', 'Servicios', 'Otros Gastos'];
-
-const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-
-const COLORS = ['#FF00FF', '#00FFFF', '#00FF00', '#FF4500', '#8A2BE2', '#F59E0B', '#10B981', '#3B82F6'];
-
-const headerStyles = `
-  .static-header {
-    background: linear-gradient(90deg, #000000 0%, ${FLUORESCENT_GREEN} 50%, #000000 100%);
-    background-size: 100% 100%;
-  }
-  .author-text-glow {
-    color: white;
-    text-shadow: 1px 1px 2px black, 0 0 10px ${FLUORESCENT_GREEN}, 0 0 20px ${FLUORESCENT_RED};
-  }
-  .subtitle-text-shadow {
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-  }
-`;
-
-// ==================== UTILIDADES ====================
-const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-// ==================== COMPONENTES ====================
-const ResummarCard = ({ title, value, icon: Icon, color, bg, isHighlight = false }) => (
-  <div
-    className={`flex-1 min-w-[220px] flex flex-col items-center justify-center gap-3 px-8 py-6 rounded-lg font-bold
-      transition-all hover:scale-[1.02] hover:shadow-lg cursor-default border-2
-      ${isHighlight ? 'border-cyan-400 shadow-lg shadow-cyan-400/50' : 'border-gray-700'}`}
-    style={{ background: bg }}
-  >
-    <Icon className="w-10 h-10" style={{ color }} />
-    <p className="text-xs uppercase tracking-widest text-gray-300 font-bold">{title}</p>
-    <p className="text-4xl font-black" style={{ color }}>${value.toLocaleString()}</p>
-  </div>
-);
-    
-const CategoryManager = ({ categories, show, onEdit, onDelete, onClose, title }) => {
-  const [editing, setEditing] = useState(null);
-  const [value, setValue] = useState('');
-
-  if (!show) return null;
-
-  return (
-    <div className="mb-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
-      <h4 className="text-lg font-bold mb-3 text-fuchsia-400 flex items-center gap-2">
-        <Settings size={20} /> {title}
-      </h4>
-      <div className="space-y-2">
-        {categories.map(cat => (
-          <div key={cat} className="flex items-center gap-2 p-2 bg-gray-700 rounded">
-            {editing === cat ? (
-              <>
-                <input
-                  type="text"
-                  value={value}
-                  onChange={e => setValue(e.target.value)}
-                  className="flex-1 bg-gray-600 text-white px-3 py-1 rounded border border-gray-500 focus:border-fuchsia-400"
-                />
-                <button onClick={() => { onEdit(cat, value); setEditing(null); }} className="bg-lime-500 px-3 py-1 rounded text-sm text-white hover:bg-lime-600">Guardar</button>
-                <button onClick={() => setEditing(null)} className="bg-gray-600 px-3 py-1 rounded text-sm text-white hover:bg-gray-700">Cancelar</button>
-              </>
-            ) : (
-              <>
-                <span className="flex-1 text-gray-200">{cat}</span>
-                <button onClick={() => { setEditing(cat); setValue(cat); }} className="text-cyan-400 hover:text-cyan-300"><Edit2 size={16} /></button>
-                <button onClick={() => onDelete(cat)} className="text-red-500 hover:text-red-400"><Trash2 size={16} /></button>
-              </>
-            )}
-          </div>
-        ))}
-      </div>
-      <button onClick={onClose} className="mt-3 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg">Cerrar</button>
-    </div>
-  );
-};
-
-const DetailModal = ({ isOpen, title, items, onClose, isIncome = false }) => {
-  const [expandedItem, setExpandedItem] = useState(null);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto border-2 border-cyan-500">
-        <div className="sticky top-0 bg-gray-900 border-b border-cyan-500 p-6 flex justify-between items-center">
-          <h2 className="text-2xl font-bold" style={{ color: FLUORESCENT_GREEN }}>{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-3xl font-light">×</button>
-        </div>
-
-        <div className="p-6 space-y-3">
-          {items.length > 0 ? (
-            items.map(item => (
-              <div key={item.id} className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-                <button
-                  onClick={() => setExpandedItem(expandedItem === item.id ? null : item.id)}
-                  className="w-full p-4 flex justify-between items-center hover:bg-gray-750 transition-colors text-left"
-                >
-                  <div className="flex-1">
-                    <p className="text-white font-semibold text-lg">{item.category}</p>
-                    <p className="text-gray-400 text-sm">{item.date}</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <p className="text-white font-bold text-2xl" style={{ color: FLUORESCENT_GREEN }}>
-                      ${item.amount.toLocaleString()}
-                    </p>
-                    <ChevronDown
-                      size={24}
-                      className={`text-cyan-400 transition-transform ${
-                        expandedItem === item.id ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </div>
-                </button>
-
-                {expandedItem === item.id && (
-                  <div className="border-t border-gray-700 bg-gray-750 p-4 space-y-3">
-                    {item.description && (
-                      <div>
-                        <p className="text-gray-400 text-xs font-semibold uppercase">Descripción</p>
-                        <p className="text-gray-200 mt-1">{item.description}</p>
-                      </div>
-                    )}
-
-                    {!isIncome && item.items && item.items.length > 0 && (
-                      <div className="border-t border-gray-700 pt-3">
-                        <p className="text-gray-300 text-sm font-semibold mb-2">
-                          Detalles ({item.items.length} {item.items.length === 1 ? 'item' : 'items'}):
-                        </p>
-                        <div className="space-y-2 bg-gray-800 p-3 rounded">
-                          {item.items.map((subitem, idx) => (
-                            <div key={idx} className="flex justify-between items-center">
-                              <span className="text-gray-300 text-sm">{subitem.concept}</span>
-                              <span className="text-cyan-400 font-semibold text-sm">
-                                ${subitem.amount.toLocaleString()}
-                              </span>
-                            </div>
-                          ))}
-                          <div className="border-t border-gray-700 pt-2 mt-2 flex justify-between items-center font-bold">
-                            <span className="text-gray-300">Subtotal</span>
-                            <span className="text-green-400">
-                              ${item.items.reduce((sum, s) => sum + s.amount, 0).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {!isIncome && (!item.items || item.items.length === 0) && (
-                      <p className="text-gray-500 text-sm italic">Sin detalles de items</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))
-          ) : (
-            <p className="text-gray-400 text-center py-12 text-lg">No hay registros para este periodo</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, incomeCategories }) => {
-  const [expanded, setExpanded] = useState(false);
-  const [selectedGraph, setSelectedGraph] = useState('expenses');
-
-  const expensesByCategory = categories
-    .map(cat => {
-      const total = currentMonthData.expenses.reduce((sum, e) => sum + (e.category === cat ? e.amount : 0), 0);
-      return { name: cat, value: total };
-    })
-    .filter(item => item.value > 0);
-
-  const incomeByCategory = incomeCategories
-    .map(cat => {
-      const total = currentMonthData.incomes.reduce((sum, i) => sum + (i.category === cat ? i.amount : 0), 0);
-      return { name: cat, value: total };
-    })
-    .filter(item => item.value > 0);
-
-  const monthlyComparison = Object.entries(monthlyData)
-    .sort(([keyA], [keyB]) => {
-      const [yA, mA] = keyA.split('-').map(Number);
-      const [yB, mB] = keyB.split('-').map(Number);
-      if (yA !== yB) return yA - yB;
-      return mA - mB;
-    })
-    .map(([key, data]) => {
-      const [y, m] = key.split('-').map(Number);
-      const ingresos = data.incomes.reduce((sum, i) => sum + i.amount, 0);
-      const gastos = data.expenses.reduce((sum, e) => sum + e.amount, 0);
-      return {
-        month: `${monthNames[m]} ${y}`,
-        ingresos,
-        gastos,
-        disponible: ingresos - gastos
-      };
-    });
-
-  const totalIncome = currentMonthData.incomes.reduce((sum, i) => sum + i.amount, 0);
-  const totalExpenses = currentMonthData.expenses.reduce((sum, e) => sum + e.amount, 0);
-  const available = totalIncome - totalExpenses;
-
-  return (
-    <div className="bg-gray-900 p-6 rounded-xl shadow-lg border-2 border-cyan-500">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex justify-between items-center"
-      >
-        <h3 className="text-xl font-bold text-cyan-400">Gráficos Financieros</h3>
-        {expanded ? <ChevronUp size={24} className="text-cyan-400" /> : <ChevronDown size={24} className="text-cyan-400" />}
-      </button>
-
-      {expanded && (
-        <div className="mt-6 space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setSelectedGraph('expenses')}
-              className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                selectedGraph === 'expenses'
-                  ? 'bg-fuchsia-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
-            >
-              Gastos por Categoría
-            </button>
-            <button
-              onClick={() => setSelectedGraph('incomes')}
-              className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                selectedGraph === 'incomes'
-                  ? 'bg-lime-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
-            >
-              Ingresos por Categoría
-            </button>
-            <button
-              onClick={() => setSelectedGraph('summary')}
-              className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                selectedGraph === 'summary'
-                  ? 'bg-orange-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
-            >
-              Resumen del Mes
-            </button>
-            <button
-              onClick={() => setSelectedGraph('comparison')}
-              className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                selectedGraph === 'comparison'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
-            >
-              Comparación Mensual
-            </button>
-          </div>
-
-          <div className="mt-6">
-            {selectedGraph === 'expenses' && (
-              <div>
-                <h4 className="text-lg font-bold mb-4 text-fuchsia-400">Gastos por Categoría</h4>
-                {expensesByCategory.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={350}>
-                    <PieChart>
-                      <Pie
-                        data={expensesByCategory}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {expensesByCategory.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: '#1F2937',
-                          border: '1px solid #374151',
-                          borderRadius: '8px',
-                          color: '#F9FAFB'
-                        }}
-                        formatter={(value) => `$${value.toLocaleString()}`}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-gray-400 text-center py-8">No hay gastos en este período</p>
-                )}
-              </div>
-            )}
-
-            {selectedGraph === 'incomes' && (
-              <div>
-                <h4 className="text-lg font-bold mb-4 text-lime-400">Ingresos por Categoría</h4>
-                {incomeByCategory.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={350}>
-                    <PieChart>
-                      <Pie
-                        data={incomeByCategory}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {incomeByCategory.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: '#1F2937',
-                          border: '1px solid #374151',
-                          borderRadius: '8px',
-                          color: '#F9FAFB'
-                        }}
-                        formatter={(value) => `$${value.toLocaleString()}`}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-gray-400 text-center py-8">No hay ingresos en este período</p>
-                )}
-              </div>
-            )}
-
-            {selectedGraph === 'summary' && (
-              <div>
-                <h4 className="text-lg font-bold mb-4 text-orange-400">Resumen del Mes</h4>
-                <ResponsiveContainer width="100%" height={350}>
-                  <BarChart
-                    data={[
-                      { name: 'Ingresos', value: totalIncome, fill: '#00FF00' },
-                      { name: 'Gastos', value: totalExpenses, fill: '#FF4500' },
-                      { name: 'Disponible', value: available, fill: available >= 0 ? '#00FFFF' : '#FF00FF' }
-                    ]}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#4B5563" />
-                    <XAxis dataKey="name" stroke="#9CA3AF" />
-                    <YAxis stroke="#9CA3AF" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1F2937',
-                        border: '1px solid #374151',
-                        borderRadius: '8px',
-                        color: '#F9FAFB'
-                      }}
-                      formatter={(value) => `$${value.toLocaleString()}`}
-                    />
-                    <Bar dataKey="value" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            {selectedGraph === 'comparison' && (
-              <div>
-                <h4 className="text-lg font-bold mb-4 text-purple-400">Comparación Mensual</h4>
-                {monthlyComparison.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={350}>
-                    <LineChart data={monthlyComparison}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#4B5563" />
-                      <XAxis dataKey="month" stroke="#9CA3AF" />
-                      <YAxis stroke="#9CA3AF" />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: '#1F2937',
-                          border: '1px solid #374151',
-                          borderRadius: '8px',
-                          color: '#F9FAFB'
-                        }}
-                        formatter={(value) => `$${value.toLocaleString()}`}
-                      />
-                      <Legend />
-                      <Line type="monotone" dataKey="ingresos" stroke="#00FF00" strokeWidth={3} name="Ingresos" />
-                      <Line type="monotone" dataKey="gastos" stroke="#FF4500" strokeWidth={3} name="Gastos" />
-                      <Line type="monotone" dataKey="disponible" stroke="#FF00FF" strokeWidth={3} name="Disponible" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-gray-400 text-center py-8">No hay datos para comparar</p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 // ==================== APP PRINCIPAL ====================
 const DreamTeamFinanceApp = () => {
   // 🔒 Estado de autenticación
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  
+
   // 🆔 ID del usuario autenticado
   const userId = session?.user?.id;
 
@@ -433,14 +34,17 @@ const DreamTeamFinanceApp = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
-  // Datos de la aplicación
-  const [monthlyData, setMonthlyData] = useState({});
-  const [incomeCategories, setIncomeCategories] = useState(INCOME_CATEGORIES);
-  const [expenseCategories, setExpenseCategories] = useState(EXPENSE_CATEGORIES);
-
-  // UI - Estado de carga y sincronización
-  const [loading, setLoading] = useState(true);
-  const [syncStatus, setSyncStatus] = useState('synced');
+  // Datos y sincronización: ahora vienen del hook useFinanceData
+  // (antes esta lógica vivía aquí mismo, duplicada y mezclada con la UI)
+  const {
+    monthlyData,
+    incomeCategories,
+    expenseCategories,
+    loading,
+    syncStatus,
+    updateMonthlyData,
+    persistAll,
+  } = useFinanceData(userId);
 
   // UI - Formularios
   const [showIncomeForm, setShowIncomeForm] = useState(false);
@@ -465,7 +69,9 @@ const DreamTeamFinanceApp = () => {
   const [editingItemIdx, setEditingItemIdx] = useState(null);
 
   // Datos del mes actual
-  const monthKey = `${currentYear}-${currentMonth}`;
+  // FIX: antes era `${currentYear}-${currentMonth}` (generaba "2026-0" para Enero).
+  // Ahora usamos getMonthKey, que genera "2026-01" (formato correcto y ordenable).
+  const monthKey = getMonthKey(currentYear, currentMonth);
   const currentMonthData = monthlyData[monthKey] || { incomes: [], expenses: [] };
 
   // Totales
@@ -487,100 +93,6 @@ const DreamTeamFinanceApp = () => {
 
     return () => subscription?.unsubscribe();
   }, []);
-
-  // ==================== FUNCIONES DE SINCRONIZACIÓN ====================
-  const loadData = async () => {
-    if (!userId) return;
-    setLoading(true);
-    try {
-      const localData = localStorage.getItem(`dreamteam-data-${userId}`);
-      if (localData) {
-        try {
-          setMonthlyData(JSON.parse(localData));
-        } catch (err) {
-          console.error('Error parseando localStorage:', err);
-        }
-      }
-
-      const { data, error } = await supabase
-        .from('monthlydata')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error de Supabase:', error.message);
-        setSyncStatus(localData ? 'pending' : 'error');
-        return;
-      }
-
-      if (data && data.data) {
-        setMonthlyData(data.data);
-        localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(data.data));
-        setSyncStatus('synced');
-      } else {
-        setSyncStatus('synced');
-      }
-    } catch (err) {
-      console.error('Error cargando datos:', err);
-      setSyncStatus('error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateMonthlyData = async (newData) => {
-    if (!userId) return;
-    setMonthlyData(newData);
-    localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(newData));
-    setSyncStatus('pending');
-
-    try {
-      const { error } = await supabase
-        .from('monthlydata')
-        .upsert({
-          id: userId,
-          user_id: userId,
-          data: newData,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) {
-        console.error('Error guardando en Supabase:', error.message);
-        setSyncStatus('error');
-      } else {
-        setSyncStatus('synced');
-      }
-    } catch (err) {
-      console.error('Error sincronizando:', err);
-      setSyncStatus('error');
-    }
-  };
-
-  const syncWhenOnline = async () => {
-    if (!userId) return;
-    const localData = localStorage.getItem(`dreamteam-data-${userId}`);
-    if (localData && syncStatus !== 'synced') {
-      try {
-        await updateMonthlyData(JSON.parse(localData));
-      } catch (err) {
-        console.error('Error en sincronización:', err);
-      }
-    }
-  };
-
-  // Cargar datos cuando userId cambie
-  useEffect(() => {
-    if (userId) {
-      loadData();
-    }
-  }, [userId]);
-
-  // Escuchar cambios de conexión
-  useEffect(() => {
-    window.addEventListener('online', syncWhenOnline);
-    return () => window.removeEventListener('online', syncWhenOnline);
-  }, [userId, syncStatus]);
 
   // ==================== VISTAS DE ESTADO ====================
   if (authLoading) {
@@ -790,9 +302,12 @@ const DreamTeamFinanceApp = () => {
   };
 
   // ==================== FUNCIONES CATEGORÍAS ====================
+  // FIX: antes estas funciones solo hacían setIncomeCategories/setExpenseCategories
+  // (estado local de React) y nunca llamaban a persistAll/Supabase — por eso las
+  // categorías nuevas desaparecían al recargar o cambiar de sesión. Ahora sí persisten.
   const handleAddIncomeCategory = () => {
     if (newIncomeCategory.trim() && !incomeCategories.includes(newIncomeCategory.trim())) {
-      setIncomeCategories([...incomeCategories, newIncomeCategory.trim()]);
+      persistAll(monthlyData, [...incomeCategories, newIncomeCategory.trim()], expenseCategories);
       setNewIncomeCategory('');
       setShowIncomeCategoryForm(false);
     }
@@ -801,15 +316,15 @@ const DreamTeamFinanceApp = () => {
   const handleEditIncomeCategory = (oldCat, newCat) => {
     const trimmed = newCat.trim();
     if (trimmed && trimmed !== oldCat && !incomeCategories.includes(trimmed)) {
-      setIncomeCategories(incomeCategories.map(c => (c === oldCat ? trimmed : c)));
-      const updated = {};
+      const updatedCategories = incomeCategories.map(c => (c === oldCat ? trimmed : c));
+      const updatedMonths = {};
       Object.entries(monthlyData).forEach(([key, data]) => {
-        updated[key] = {
+        updatedMonths[key] = {
           ...data,
           incomes: data.incomes.map(i => (i.category === oldCat ? { ...i, category: trimmed } : i))
         };
       });
-      updateMonthlyData(updated);
+      persistAll(updatedMonths, updatedCategories, expenseCategories);
     }
   };
 
@@ -821,12 +336,12 @@ const DreamTeamFinanceApp = () => {
       alert('No puedes borrar una categoría con ingresos asociados.');
       return;
     }
-    setIncomeCategories(incomeCategories.filter(c => c !== cat));
+    persistAll(monthlyData, incomeCategories.filter(c => c !== cat), expenseCategories);
   };
 
   const handleAddExpenseCategory = () => {
     if (newExpenseCategory.trim() && !expenseCategories.includes(newExpenseCategory.trim())) {
-      setExpenseCategories([...expenseCategories, newExpenseCategory.trim()]);
+      persistAll(monthlyData, incomeCategories, [...expenseCategories, newExpenseCategory.trim()]);
       setNewExpenseCategory('');
       setShowExpenseCategoryForm(false);
     }
@@ -835,15 +350,15 @@ const DreamTeamFinanceApp = () => {
   const handleEditExpenseCategory = (oldCat, newCat) => {
     const trimmed = newCat.trim();
     if (trimmed && trimmed !== oldCat && !expenseCategories.includes(trimmed)) {
-      setExpenseCategories(expenseCategories.map(c => (c === oldCat ? trimmed : c)));
-      const updated = {};
+      const updatedCategories = expenseCategories.map(c => (c === oldCat ? trimmed : c));
+      const updatedMonths = {};
       Object.entries(monthlyData).forEach(([key, data]) => {
-        updated[key] = {
+        updatedMonths[key] = {
           ...data,
           expenses: data.expenses.map(e => (e.category === oldCat ? { ...e, category: trimmed } : e))
         };
       });
-      updateMonthlyData(updated);
+      persistAll(updatedMonths, incomeCategories, updatedCategories);
     }
   };
 
@@ -855,7 +370,7 @@ const DreamTeamFinanceApp = () => {
       alert('No puedes borrar una categoría con gastos asociados.');
       return;
     }
-    setExpenseCategories(expenseCategories.filter(c => c !== cat));
+    persistAll(monthlyData, incomeCategories, expenseCategories.filter(c => c !== cat));
   };
 
   const navigateMonth = (dir) => {
@@ -872,7 +387,6 @@ const DreamTeamFinanceApp = () => {
   // ==================== RENDER ====================
   return (
     <div className="min-h-screen bg-black text-white font-inter">
-      <style>{headerStyles}</style>
 
       {/* Indicador de sincronización */}
       <div className="fixed top-4 right-4 text-sm font-semibold z-40 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 flex items-center gap-2">
