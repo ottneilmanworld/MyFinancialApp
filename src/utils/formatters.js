@@ -1,0 +1,1 @@
+export const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; export const getMonthKey = (year, monthIndex) => { const formattedMonth = String(monthIndex + 1).padStart(2, '0'); return `${year}-${formattedMonth}`; }
