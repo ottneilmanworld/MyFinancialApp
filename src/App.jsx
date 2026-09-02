@@ -43,12 +43,10 @@ const DreamTeamFinanceApp = () => {
     incomeCategories,
     expenseCategories,
     currency,
-    budgets,
     loading,
     syncStatus,
     updateMonthlyData,
     updateCurrency,
-    updateBudgets,
     persistAll,
   } = useFinanceData(userId);
 
@@ -79,12 +77,20 @@ const DreamTeamFinanceApp = () => {
   // FIX: antes era `${currentYear}-${currentMonth}` (generaba "2026-0" para Enero).
   // Ahora usamos getMonthKey, que genera "2026-01" (formato correcto y ordenable).
   const monthKey = getMonthKey(currentYear, currentMonth);
-  const currentMonthData = monthlyData[monthKey] || { incomes: [], expenses: [] };
+  const currentMonthData = monthlyData[monthKey] || { incomes: [], expenses: [], budgets: {} };
 
   // Totales
   const totalIncome = currentMonthData.incomes.reduce((sum, i) => sum + i.amount, 0);
   const totalExpenses = currentMonthData.expenses.reduce((sum, e) => sum + e.amount, 0);
   const available = totalIncome - totalExpenses;
+
+  // Guarda los presupuestos SOLO del mes que estás viendo ahora mismo.
+  const handleSaveBudgets = async (newBudgets) => {
+    await updateMonthlyData({
+      ...monthlyData,
+      [monthKey]: { ...currentMonthData, budgets: newBudgets },
+    });
+  };
 
   // 🔒 Verificar autenticación al iniciar
   useEffect(() => {
@@ -724,15 +730,15 @@ const DreamTeamFinanceApp = () => {
           <BudgetManager
             show={showBudgetManager}
             expenseCategories={expenseCategories}
-            budgets={budgets}
-            onSave={updateBudgets}
+            budgets={currentMonthData.budgets || {}}
+            onSave={handleSaveBudgets}
             onClose={() => setShowBudgetManager(false)}
           />
 
           <BudgetProgress
             expenses={currentMonthData.expenses}
             expenseCategories={expenseCategories}
-            budgets={budgets}
+            budgets={currentMonthData.budgets || {}}
             currency={currency}
           />
 
