@@ -10,11 +10,12 @@ import {
   Plus, Edit2, Trash2, ChevronDown, ChevronUp,
   TrendingUp, TrendingDown, Wallet,
   Calendar, ChevronLeft, ChevronRight,
-  Settings, Eye, LogOut
+  Settings, Eye, LogOut, Download
 } from 'lucide-react';
 import { useFinanceData } from './hooks/useFinanceData';
 import { FLUORESCENT_GREEN, VIVID_RED, INCOME_CATEGORIES, EXPENSE_CATEGORIES, monthNames, CURRENCIES } from './utils/constants';
 import { generateId, getMonthKey, formatCurrency } from './utils/formatters';
+import { exportMonthToCSV } from './utils/csvExport';
 import { ResummarCard } from './components/SummaryCard';
 import { CategoryManager } from './components/CategoryManager';
 import { BudgetManager } from './components/BudgetManager';
@@ -90,6 +91,11 @@ const DreamTeamFinanceApp = () => {
       ...monthlyData,
       [monthKey]: { ...currentMonthData, budgets: newBudgets },
     });
+  };
+
+  const handleExportCSV = () => {
+    const monthLabel = `${monthNames[currentMonth]} ${currentYear}`;
+    exportMonthToCSV(monthLabel, currentMonthData, currency);
   };
 
   // 🔒 Verificar autenticación al iniciar
@@ -475,6 +481,14 @@ const DreamTeamFinanceApp = () => {
               <span className="sm:hidden">Sig</span>
               <ChevronRight size={18} className="sm:block hidden" />
               <ChevronRight size={16} className="sm:hidden block" />
+            </button>
+          </div>
+          <div className="flex justify-end mt-3">
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-cyan-400 border border-gray-700 transition-all"
+            >
+              <Download size={16} /> Exportar CSV
             </button>
           </div>
         </div>
