@@ -6,8 +6,9 @@ import {
 } from 'recharts';
 import { ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { COLORS, monthNames } from '../utils/constants';
+import { formatCurrency } from '../utils/formatters';
 
-export const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, incomeCategories }) => {
+export const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, incomeCategories, currency }) => {
   const [expanded, setExpanded] = useState(false);
   const [selectedGraph, setSelectedGraph] = useState('expenses');
 
@@ -131,7 +132,7 @@ export const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, i
                           borderRadius: '8px',
                           color: '#F9FAFB'
                         }}
-                        formatter={(value) => `$${value.toLocaleString()}`}
+                        formatter={(value) => formatCurrency(value, currency)}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -168,7 +169,7 @@ export const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, i
                           borderRadius: '8px',
                           color: '#F9FAFB'
                         }}
-                        formatter={(value) => `$${value.toLocaleString()}`}
+                        formatter={(value) => formatCurrency(value, currency)}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -199,7 +200,7 @@ export const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, i
                         borderRadius: '8px',
                         color: '#F9FAFB'
                       }}
-                      formatter={(value) => `$${value.toLocaleString()}`}
+                      formatter={(value) => formatCurrency(value, currency)}
                     />
                     <Bar dataKey="value" />
                   </BarChart>
@@ -223,7 +224,7 @@ export const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, i
                           borderRadius: '8px',
                           color: '#F9FAFB'
                         }}
-                        formatter={(value) => `$${value.toLocaleString()}`}
+                        formatter={(value) => formatCurrency(value, currency)}
                       />
                       <Legend />
                       <Line type="monotone" dataKey="ingresos" stroke="#00FF00" strokeWidth={3} name="Ingresos" />

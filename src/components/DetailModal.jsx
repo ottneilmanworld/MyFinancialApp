@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { FLUORESCENT_GREEN } from '../utils/constants';
+import { formatCurrency } from '../utils/formatters';
 
-export const DetailModal = ({ isOpen, title, items, onClose, isIncome = false }) => {
+export const DetailModal = ({ isOpen, title, items, onClose, isIncome = false, currency }) => {
   const [expandedItem, setExpandedItem] = useState(null);
 
   if (!isOpen) return null;
@@ -28,7 +30,7 @@ export const DetailModal = ({ isOpen, title, items, onClose, isIncome = false })
                   </div>
                   <div className="flex items-center gap-4">
                     <p className="text-white font-bold text-2xl" style={{ color: FLUORESCENT_GREEN }}>
-                      ${item.amount.toLocaleString()}
+                      {formatCurrency(item.amount, currency)}
                     </p>
                     <ChevronDown
                       size={24}
@@ -58,14 +60,14 @@ export const DetailModal = ({ isOpen, title, items, onClose, isIncome = false })
                             <div key={idx} className="flex justify-between items-center">
                               <span className="text-gray-300 text-sm">{subitem.concept}</span>
                               <span className="text-cyan-400 font-semibold text-sm">
-                                ${subitem.amount.toLocaleString()}
+                                {formatCurrency(subitem.amount, currency)}
                               </span>
                             </div>
                           ))}
                           <div className="border-t border-gray-700 pt-2 mt-2 flex justify-between items-center font-bold">
                             <span className="text-gray-300">Subtotal</span>
                             <span className="text-green-400">
-                              ${item.items.reduce((sum, s) => sum + s.amount, 0).toLocaleString()}
+                              {formatCurrency(item.items.reduce((sum, s) => sum + s.amount, 0), currency)}
                             </span>
                           </div>
                         </div>

@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { financeService } from '../services/supabaseService';
-import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../utils/constants';
+import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, DEFAULT_CURRENCY } from '../utils/constants';
 import { getMonthKey } from '../utils/formatters';
 
 export const useFinanceData = (userId) => {
   const [monthlyData, setMonthlyData] = useState({});
   const [incomeCategories, setIncomeCategories] = useState(INCOME_CATEGORIES);
   const [expenseCategories, setExpenseCategories] = useState(EXPENSE_CATEGORIES);
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState('synced');
 
@@ -36,15 +37,29 @@ export const useFinanceData = (userId) => {
   };
 
   const parseStoredPayload = (raw) => {
-    if (!raw) return { months: {}, incomeCategories: INCOME_CATEGORIES, expenseCategories: EXPENSE_CATEGORIES };
+    if (!raw) {
+      return {
+        months: {},
+        incomeCategories: INCOME_CATEGORIES,
+        expenseCategories: EXPENSE_CATEGORIES,
+        currency: DEFAULT_CURRENCY,
+      };
+    }
     if (raw.months) {
       return {
         months: raw.months || {},
         incomeCategories: raw.incomeCategories || INCOME_CATEGORIES,
         expenseCategories: raw.expenseCategories || EXPENSE_CATEGORIES,
+        currency: raw.currency || DEFAULT_CURRENCY,
       };
     }
-    return { months: raw, incomeCategories: INCOME_CATEGORIES, expenseCategories: EXPENSE_CATEGORIES };
+    // Formato viejo: `raw` ES el objeto de meses directamente (sin wrapper)
+    return {
+      months: raw,
+      incomeCategories: INCOME_CATEGORIES,
+      expenseCategories: EXPENSE_CATEGORIES,
+      currency: DEFAULT_CURRENCY,
+    };
   };
 
   const loadData = useCallback(async () => {
@@ -59,6 +74,7 @@ export const useFinanceData = (userId) => {
           setMonthlyData(parsed.months);
           setIncomeCategories(parsed.incomeCategories);
           setExpenseCategories(parsed.expenseCategories);
+          setCurrency(parsed.currency);
         } catch (err) {
           console.error('Error parseando localStorage:', err);
         }
@@ -71,9 +87,8 @@ export const useFinanceData = (userId) => {
         setMonthlyData(parsed.months);
         setIncomeCategories(parsed.incomeCategories);
         setExpenseCategories(parsed.expenseCategories);
+        setCurrency(parsed.currency);
         localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(parsed));
-        // Guardamos la migración de vuelta en Supabase para que quede
-        // permanente (no hace falta repetirla en cada carga).
         await financeService.saveUserData(userId, parsed);
         setSyncStatus('synced');
       } else {
@@ -87,13 +102,24 @@ export const useFinanceData = (userId) => {
     }
   }, [userId]);
 
-  const persistAll = async (newMonths = monthlyData, newIncomeCategories = incomeCategories, newExpenseCategories = expenseCategories) => {
+  const persistAll = async (
+    newMonths = monthlyData,
+    newIncomeCategories = incomeCategories,
+    newExpenseCategories = expenseCategories,
+    newCurrency = currency
+  ) => {
     if (!userId) return;
     setMonthlyData(newMonths);
     setIncomeCategories(newIncomeCategories);
     setExpenseCategories(newExpenseCategories);
+    setCurrency(newCurrency);
 
-    const payload = { months: newMonths, incomeCategories: newIncomeCategories, expenseCategories: newExpenseCategories };
+    const payload = {
+      months: newMonths,
+      incomeCategories: newIncomeCategories,
+      expenseCategories: newExpenseCategories,
+      currency: newCurrency,
+    };
     localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(payload));
     setSyncStatus('pending');
 
@@ -107,7 +133,11 @@ export const useFinanceData = (userId) => {
   };
 
   const updateMonthlyData = async (newData) => {
-    await persistAll(newData, incomeCategories, expenseCategories);
+    await persistAll(newData, incomeCategories, expenseCategories, currency);
+  };
+
+  const updateCurrency = async (newCurrency) => {
+    await persistAll(monthlyData, incomeCategories, expenseCategories, newCurrency);
   };
 
   const syncWhenOnline = useCallback(async () => {
@@ -116,7 +146,7 @@ export const useFinanceData = (userId) => {
     if (localRaw && syncStatus !== 'synced') {
       try {
         const parsed = parseStoredPayload(JSON.parse(localRaw));
-        await persistAll(parsed.months, parsed.incomeCategories, parsed.expenseCategories);
+        await persistAll(parsed.months, parsed.incomeCategories, parsed.expenseCategories, parsed.currency);
       } catch (err) {
         console.error('Error en sincronización:', err);
       }
@@ -136,9 +166,11 @@ export const useFinanceData = (userId) => {
     monthlyData,
     incomeCategories,
     expenseCategories,
+    currency,
     loading,
     syncStatus,
     updateMonthlyData,
+    updateCurrency,
     persistAll,
   };
 };

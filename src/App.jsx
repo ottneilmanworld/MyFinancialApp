@@ -13,8 +13,8 @@ import {
   Settings, Eye, LogOut
 } from 'lucide-react';
 import { useFinanceData } from './hooks/useFinanceData';
-import { FLUORESCENT_GREEN, VIVID_RED, INCOME_CATEGORIES, EXPENSE_CATEGORIES, monthNames } from './utils/constants';
-import { generateId, getMonthKey } from './utils/formatters';
+import { FLUORESCENT_GREEN, VIVID_RED, INCOME_CATEGORIES, EXPENSE_CATEGORIES, monthNames, CURRENCIES } from './utils/constants';
+import { generateId, getMonthKey, formatCurrency } from './utils/formatters';
 import { ResummarCard } from './components/SummaryCard';
 import { CategoryManager } from './components/CategoryManager';
 import { DetailModal } from './components/DetailModal';
@@ -40,9 +40,11 @@ const DreamTeamFinanceApp = () => {
     monthlyData,
     incomeCategories,
     expenseCategories,
+    currency,
     loading,
     syncStatus,
     updateMonthlyData,
+    updateCurrency,
     persistAll,
   } = useFinanceData(userId);
 
@@ -388,8 +390,18 @@ const DreamTeamFinanceApp = () => {
   return (
     <div className="min-h-screen bg-black text-white font-inter">
 
-      {/* Indicador de sincronización */}
+      {/* Indicador de sincronización + Selector de Moneda */}
       <div className="fixed top-4 right-4 text-sm font-semibold z-40 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 flex items-center gap-2">
+        <select
+          value={currency}
+          onChange={(e) => updateCurrency(e.target.value)}
+          className="bg-gray-800 text-white text-xs rounded px-2 py-1 border border-gray-600 focus:border-cyan-400 outline-none"
+          title="Moneda"
+        >
+          {CURRENCIES.map(c => (
+            <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+          ))}
+        </select>
         {syncStatus === 'synced' && <span className="text-green-400">✅ Sincronizado</span>}
         {syncStatus === 'pending' && <span className="text-yellow-400">⏳ Guardando...</span>}
         {syncStatus === 'error' && <span className="text-red-400">⚠️ Offline (local)</span>}
@@ -464,6 +476,7 @@ const DreamTeamFinanceApp = () => {
             icon={TrendingUp}
             color="#00FF00"
             bg="linear-gradient(135deg, #1F3A1F, #2D5A2D)"
+            currency={currency}
           />
           <ResummarCard
             title="Gastos Totales"
@@ -471,6 +484,7 @@ const DreamTeamFinanceApp = () => {
             icon={TrendingDown}
             color="#FF073A"
             bg="linear-gradient(135deg, #3A1F1F, #5A2D2D)"
+            currency={currency}
           />
           <ResummarCard
             title="Disponible"
@@ -479,6 +493,7 @@ const DreamTeamFinanceApp = () => {
             color={available >= 0 ? '#00FFFF' : '#FF00FF'}
             bg="linear-gradient(135deg, #1F3A3A, #2D5A5A)"
             isHighlight={true}
+            currency={currency}
           />
         </div>
 
@@ -488,6 +503,7 @@ const DreamTeamFinanceApp = () => {
           currentMonthData={currentMonthData}
           categories={expenseCategories}
           incomeCategories={incomeCategories}
+          currency={currency}
         />
 
         {/* SECCIÓN DE INGRESOS */}
@@ -619,7 +635,7 @@ const DreamTeamFinanceApp = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-1">
                         <span className="font-semibold text-gray-100">{inc.category}</span>
-                        <span className="text-green-400 font-bold text-lg">${inc.amount.toLocaleString()}</span>
+                        <span className="text-green-400 font-bold text-lg">{formatCurrency(inc.amount, currency)}</span>
                       </div>
                       <div className="text-gray-400 text-sm">
                         <span>{inc.date}</span>
@@ -791,13 +807,13 @@ const DreamTeamFinanceApp = () => {
                   <div className="bg-gray-700 p-3 rounded space-y-2 mb-3 border border-gray-600">
                     <div className="flex justify-between items-center pb-2 border-b border-gray-600">
                       <p className="text-gray-300 font-semibold text-sm">Items ({expenseForm.items.length})</p>
-                      <p className="text-cyan-400 font-bold">Total: ${expenseForm.items.reduce((s, i) => s + parseFloat(i.amount || 0), 0).toLocaleString()}</p>
+                      <p className="text-cyan-400 font-bold">Total: {formatCurrency(expenseForm.items.reduce((s, i) => s + parseFloat(i.amount || 0), 0), currency)}</p>
                     </div>
                     {expenseForm.items.map((item, idx) => (
                       <div key={idx} className={`flex justify-between items-center p-2 rounded text-sm ${editingItemIdx === idx ? 'bg-cyan-900/40 ring-1 ring-cyan-400' : 'bg-gray-800'}`}>
                         <span className="text-gray-200 font-medium flex-1">{item.concept}</span>
                         <div className="flex items-center gap-3">
-                          <span className="text-cyan-400 font-semibold">${item.amount.toLocaleString()}</span>
+                          <span className="text-cyan-400 font-semibold">{formatCurrency(item.amount, currency)}</span>
                           <button
                             onClick={() => startEditExpenseItem(idx)}
                             className="text-cyan-400 hover:text-cyan-300 p-1"
@@ -847,7 +863,7 @@ const DreamTeamFinanceApp = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-1">
                         <span className="font-semibold text-gray-100">{exp.category}</span>
-                        <span className="text-red-400 font-bold text-lg">${exp.amount.toLocaleString()}</span>
+                        <span className="text-red-400 font-bold text-lg">{formatCurrency(exp.amount, currency)}</span>
                         {exp.items && exp.items.length > 0 && (
                           <span className="bg-cyan-600/30 text-cyan-400 text-xs px-2 py-1 rounded">
                             {exp.items.length} items
@@ -880,7 +896,7 @@ const DreamTeamFinanceApp = () => {
                         {exp.items.slice(0, 2).map((item, idx) => (
                           <div key={idx} className="flex justify-between text-gray-300">
                             <span>{item.concept}</span>
-                            <span className="text-cyan-400">${item.amount.toLocaleString()}</span>
+                            <span className="text-cyan-400">{formatCurrency(item.amount, currency)}</span>
                           </div>
                         ))}
                         {exp.items.length > 2 && (
@@ -905,6 +921,7 @@ const DreamTeamFinanceApp = () => {
         items={currentMonthData.incomes || []}
         onClose={() => setShowIncomeDetail(false)}
         isIncome={true}
+        currency={currency}
       />
 
       <DetailModal
@@ -913,6 +930,7 @@ const DreamTeamFinanceApp = () => {
         items={currentMonthData.expenses || []}
         onClose={() => setShowExpenseDetail(false)}
         isIncome={false}
+        currency={currency}
       />
 
       {/* Footer */}
