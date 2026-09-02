@@ -489,14 +489,35 @@ const DreamTeamFinanceApp = () => {
   }, []);
 
   // ==================== FUNCIONES DE SINCRONIZACIÓN ====================
+  // FIX: antes solo se guardaba `monthlyData`. Las categorías vivían solo en
+  // useState y se perdían al recargar/cerrar sesión. Ahora el payload que se
+  // sincroniza incluye meses + categorías, con compatibilidad hacia atrás
+  // para leer el formato viejo que ya está guardado en tu tabla.
+  const parseStoredPayload = (raw) => {
+    if (!raw) return { months: {}, incomeCategories: INCOME_CATEGORIES, expenseCategories: EXPENSE_CATEGORIES };
+    if (raw.months) {
+      // Formato nuevo
+      return {
+        months: raw.months || {},
+        incomeCategories: raw.incomeCategories || INCOME_CATEGORIES,
+        expenseCategories: raw.expenseCategories || EXPENSE_CATEGORIES,
+      };
+    }
+    // Formato viejo: `raw` ES el objeto de meses directamente (sin wrapper)
+    return { months: raw, incomeCategories: INCOME_CATEGORIES, expenseCategories: EXPENSE_CATEGORIES };
+  };
+
   const loadData = async () => {
     if (!userId) return;
     setLoading(true);
     try {
-      const localData = localStorage.getItem(`dreamteam-data-${userId}`);
-      if (localData) {
+      const localRaw = localStorage.getItem(`dreamteam-data-${userId}`);
+      if (localRaw) {
         try {
-          setMonthlyData(JSON.parse(localData));
+          const parsed = parseStoredPayload(JSON.parse(localRaw));
+          setMonthlyData(parsed.months);
+          setIncomeCategories(parsed.incomeCategories);
+          setExpenseCategories(parsed.expenseCategories);
         } catch (err) {
           console.error('Error parseando localStorage:', err);
         }
@@ -510,13 +531,16 @@ const DreamTeamFinanceApp = () => {
 
       if (error) {
         console.error('Error de Supabase:', error.message);
-        setSyncStatus(localData ? 'pending' : 'error');
+        setSyncStatus(localRaw ? 'pending' : 'error');
         return;
       }
 
       if (data && data.data) {
-        setMonthlyData(data.data);
-        localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(data.data));
+        const parsed = parseStoredPayload(data.data);
+        setMonthlyData(parsed.months);
+        setIncomeCategories(parsed.incomeCategories);
+        setExpenseCategories(parsed.expenseCategories);
+        localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(parsed.months ? { months: parsed.months, incomeCategories: parsed.incomeCategories, expenseCategories: parsed.expenseCategories } : {}));
         setSyncStatus('synced');
       } else {
         setSyncStatus('synced');
@@ -529,10 +553,15 @@ const DreamTeamFinanceApp = () => {
     }
   };
 
-  const updateMonthlyData = async (newData) => {
+  // persistAll: única puerta de guardado. Guarda meses Y categorías juntos.
+  const persistAll = async (newMonths = monthlyData, newIncomeCategories = incomeCategories, newExpenseCategories = expenseCategories) => {
     if (!userId) return;
-    setMonthlyData(newData);
-    localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(newData));
+    setMonthlyData(newMonths);
+    setIncomeCategories(newIncomeCategories);
+    setExpenseCategories(newExpenseCategories);
+
+    const payload = { months: newMonths, incomeCategories: newIncomeCategories, expenseCategories: newExpenseCategories };
+    localStorage.setItem(`dreamteam-data-${userId}`, JSON.stringify(payload));
     setSyncStatus('pending');
 
     try {
@@ -541,7 +570,7 @@ const DreamTeamFinanceApp = () => {
         .upsert({
           id: userId,
           user_id: userId,
-          data: newData,
+          data: payload,
           updated_at: new Date().toISOString()
         });
 
@@ -557,12 +586,18 @@ const DreamTeamFinanceApp = () => {
     }
   };
 
+  // Se mantiene el nombre para no tocar cada handler de ingresos/gastos existente.
+  const updateMonthlyData = async (newData) => {
+    await persistAll(newData, incomeCategories, expenseCategories);
+  };
+
   const syncWhenOnline = async () => {
     if (!userId) return;
-    const localData = localStorage.getItem(`dreamteam-data-${userId}`);
-    if (localData && syncStatus !== 'synced') {
+    const localRaw = localStorage.getItem(`dreamteam-data-${userId}`);
+    if (localRaw && syncStatus !== 'synced') {
       try {
-        await updateMonthlyData(JSON.parse(localData));
+        const parsed = parseStoredPayload(JSON.parse(localRaw));
+        await persistAll(parsed.months, parsed.incomeCategories, parsed.expenseCategories);
       } catch (err) {
         console.error('Error en sincronización:', err);
       }
@@ -790,9 +825,12 @@ const DreamTeamFinanceApp = () => {
   };
 
   // ==================== FUNCIONES CATEGORÍAS ====================
+  // FIX: antes estas funciones solo hacían setIncomeCategories/setExpenseCategories
+  // (estado local de React) y nunca llamaban a persistAll/Supabase — por eso las
+  // categorías nuevas desaparecían al recargar o cambiar de sesión. Ahora sí persisten.
   const handleAddIncomeCategory = () => {
     if (newIncomeCategory.trim() && !incomeCategories.includes(newIncomeCategory.trim())) {
-      setIncomeCategories([...incomeCategories, newIncomeCategory.trim()]);
+      persistAll(monthlyData, [...incomeCategories, newIncomeCategory.trim()], expenseCategories);
       setNewIncomeCategory('');
       setShowIncomeCategoryForm(false);
     }
@@ -801,15 +839,15 @@ const DreamTeamFinanceApp = () => {
   const handleEditIncomeCategory = (oldCat, newCat) => {
     const trimmed = newCat.trim();
     if (trimmed && trimmed !== oldCat && !incomeCategories.includes(trimmed)) {
-      setIncomeCategories(incomeCategories.map(c => (c === oldCat ? trimmed : c)));
-      const updated = {};
+      const updatedCategories = incomeCategories.map(c => (c === oldCat ? trimmed : c));
+      const updatedMonths = {};
       Object.entries(monthlyData).forEach(([key, data]) => {
-        updated[key] = {
+        updatedMonths[key] = {
           ...data,
           incomes: data.incomes.map(i => (i.category === oldCat ? { ...i, category: trimmed } : i))
         };
       });
-      updateMonthlyData(updated);
+      persistAll(updatedMonths, updatedCategories, expenseCategories);
     }
   };
 
@@ -821,12 +859,12 @@ const DreamTeamFinanceApp = () => {
       alert('No puedes borrar una categoría con ingresos asociados.');
       return;
     }
-    setIncomeCategories(incomeCategories.filter(c => c !== cat));
+    persistAll(monthlyData, incomeCategories.filter(c => c !== cat), expenseCategories);
   };
 
   const handleAddExpenseCategory = () => {
     if (newExpenseCategory.trim() && !expenseCategories.includes(newExpenseCategory.trim())) {
-      setExpenseCategories([...expenseCategories, newExpenseCategory.trim()]);
+      persistAll(monthlyData, incomeCategories, [...expenseCategories, newExpenseCategory.trim()]);
       setNewExpenseCategory('');
       setShowExpenseCategoryForm(false);
     }
@@ -835,15 +873,15 @@ const DreamTeamFinanceApp = () => {
   const handleEditExpenseCategory = (oldCat, newCat) => {
     const trimmed = newCat.trim();
     if (trimmed && trimmed !== oldCat && !expenseCategories.includes(trimmed)) {
-      setExpenseCategories(expenseCategories.map(c => (c === oldCat ? trimmed : c)));
-      const updated = {};
+      const updatedCategories = expenseCategories.map(c => (c === oldCat ? trimmed : c));
+      const updatedMonths = {};
       Object.entries(monthlyData).forEach(([key, data]) => {
-        updated[key] = {
+        updatedMonths[key] = {
           ...data,
           expenses: data.expenses.map(e => (e.category === oldCat ? { ...e, category: trimmed } : e))
         };
       });
-      updateMonthlyData(updated);
+      persistAll(updatedMonths, incomeCategories, updatedCategories);
     }
   };
 
@@ -855,7 +893,7 @@ const DreamTeamFinanceApp = () => {
       alert('No puedes borrar una categoría con gastos asociados.');
       return;
     }
-    setExpenseCategories(expenseCategories.filter(c => c !== cat));
+    persistAll(monthlyData, incomeCategories, expenseCategories.filter(c => c !== cat));
   };
 
   const navigateMonth = (dir) => {
