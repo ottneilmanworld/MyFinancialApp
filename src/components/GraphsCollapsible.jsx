@@ -37,7 +37,7 @@ export const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, i
       const ingresos = data.incomes.reduce((sum, i) => sum + i.amount, 0);
       const gastos = data.expenses.reduce((sum, e) => sum + e.amount, 0);
       return {
-        month: `${monthNames[m]} ${y}`,
+        month: `${monthNames[m - 1]} ${y}`,
         ingresos,
         gastos,
         disponible: ingresos - gastos
