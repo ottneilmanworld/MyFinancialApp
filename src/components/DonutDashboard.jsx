@@ -4,12 +4,12 @@ import { formatCurrency } from '../utils/formatters';
 
 // Colores del donut — mismo orden que la landing
 const SLICE_COLORS = [
-  '#39FF14', // verde neón
-  '#00FFFF', // cyan
-  '#FF00FF', // magenta
-  '#FF4500', // naranja rojo
-  '#8A2BE2', // violeta
-  '#F59E0B', // ámbar
+  '#5B8A72', // verde salvia
+  '#6E8FA6', // azul niebla
+  '#D97B5B', // terracota
+  '#D9A441', // ámbar suave
+  '#A9C2D6', // azul claro
+  '#8A8578', // gris cálido
 ];
 
 /**

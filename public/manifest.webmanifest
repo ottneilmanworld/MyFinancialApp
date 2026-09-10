@@ -1,7 +1,7 @@
 {
-  "name": "DreamTeam Finance",
-  "short_name": "DreamTeam",
-  "description": "Control de ingresos, gastos y disponible mensual",
+  "name": "Tranqui Finanzas",
+  "short_name": "Tranqui",
+  "description": "Control de ingresos, gastos y disponible mensual, sin ansiedad",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

@@ -24,6 +24,7 @@ import { BudgetManager }    from './components/BudgetManager';
 import { BudgetProgress }   from './components/BudgetProgress';
 import { DetailModal }      from './components/DetailModal';
 import { GraphsCollapsible } from './components/GraphsCollapsible';
+import ResetPassword from './components/ResetPassword';
 
 // Componentes NUEVOS (créalos en Pasos 2, 3 y 4)
 import { DonutDashboard }   from './components/DonutDashboard';
@@ -298,10 +299,11 @@ const ExpenseForm = ({
 // ══════════════════════════════════════════════════════════════
 // APP PRINCIPAL
 // ══════════════════════════════════════════════════════════════
-const DreamTeamFinanceApp = () => {
+const TranquiFinanzasApp = () => {
   // ── Auth ─────────────────────────────────────────────────
-  const [session,     setSession]    = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [session,          setSession]          = useState(null);
+  const [authLoading,      setAuthLoading]      = useState(true);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
   const userId = session?.user?.id;
 
   // ── Fecha actual ─────────────────────────────────────────
@@ -361,10 +363,13 @@ const DreamTeamFinanceApp = () => {
       setSession(session);
       setAuthLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecovery(true);
+      }
       setSession(session);
       setAuthLoading(false);
-    });
+    });    
     return () => subscription?.unsubscribe();
   }, []);
 
@@ -377,6 +382,10 @@ const DreamTeamFinanceApp = () => {
       </div>
     </div>
   );
+
+  if (passwordRecovery) {
+    return <ResetPassword onDone={() => setPasswordRecovery(false)} />;
+  }
 
   if (!session) return <Auth />;
 
@@ -615,12 +624,12 @@ const DreamTeamFinanceApp = () => {
       <header className="static-header p-8 shadow-lg">
         <div className="max-w-7xl mx-auto text-center">
           <h1 className="text-5xl font-black text-white tracking-wide" style={{ textShadow: '3px 3px 6px rgba(0,0,0,.8)' }}>
-            My Finance App
+            Tranqui Finanzas
           </h1>
           <p className="text-white text-xl mt-2 font-bold subtitle-text-shadow">
             Gestor de Finanzas Personales
           </p>
-          <p className="text-lg mt-2 font-semibold author-text-glow">By Otto N. Manrique</p>
+          <p className="slogan-script mt-2">El dinero ya no es un problema. Ni una fuente de estrés.</p>          
           <p className="text-gray-300 text-sm mt-2">Usuario: {session?.user?.email}</p>
         </div>
       </header>
@@ -924,10 +933,11 @@ const DreamTeamFinanceApp = () => {
 
       {/* ── Footer ─────────────────────────────────────────── */}
       <footer className="bg-gray-900 p-6 text-center text-gray-500 text-sm mt-8 border-t border-gray-800">
-        <p>© {new Date().getFullYear()} My Finance App — DreamTeam Finance. Todos los derechos reservados.</p>
+        <p>© {new Date().getFullYear()} Tranqui Finanzas. Todos los derechos reservados.</p>
+        <p className="mt-1 text-xs text-gray-600">By Otto N. Manrique</p>        
       </footer>
     </div>
   );
 };
 
-export default DreamTeamFinanceApp;
+export default TranquiFinanzasApp;

@@ -1,62 +1,78 @@
-# DreamTeam Finance — MVP
+# Tranqui Finanzas
 
-App de control de finanzas personales (ingresos, gastos, disponible por mes,
-gráficos y detalle por conceptos). Este paquete ya trae 3 correcciones sobre
-la versión que enviaste:
+Control de ingresos, gastos y disponible mensual — sin ansiedad, a tu ritmo.
 
-1. **Botones de resumen** (Ingresos/Gastos/Disponible) ahora van en **una sola
-   fila**, con el mismo lenguaje visual que los botones "Anterior/Siguiente".
-2. **Edición real de items/conceptos** dentro de un gasto (antes solo se podía
-   borrar y volver a escribir).
-3. **Persistencia con localStorage**: los datos ya no se pierden al cerrar el
-   navegador.
+## ✨ Funcionalidades
 
-## 1. Abrir el proyecto en VS Code
+- Registro de ingresos y gastos por categoría (personalizables)
+- Desglose de gastos por ítem/concepto
+- Presupuestos por categoría con progreso visual
+- Gráficos: distribución por categoría, resumen mensual, comparación entre meses
+- Exportación de datos a CSV
+- Selector de moneda de visualización (USD, EUR, MXN, COP, VES, ARS)
+- Autenticación con correo/contraseña (Supabase Auth), incluyendo recuperación
+  de contraseña
+- Funciona offline: los datos se cachean en `localStorage` y se sincronizan
+  con Supabase cuando hay conexión
+- Instalable como PWA (Progressive Web App)
 
-```bash
-cd dreamteam-finance
-code .
-```
+## 🛠️ Stack técnico
 
-## 2. Instalar dependencias y correr en local
+- React + Vite
+- Tailwind CSS
+- Supabase (Auth + Postgres)
+- Recharts (gráficos)
+- Lucide React (iconos)
+
+## 🚀 Levantar el proyecto en local
 
 ```bash
 npm install
+```
+
+Crea un archivo `.env.local` en la raíz (no lo subas a git) con:
+
+```
+VITE_SUPABASE_URL=tu-url-de-supabase
+VITE_SUPABASE_ANON_KEY=tu-anon-key
+```
+
+Luego:
+
+```bash
 npm run dev
 ```
 
-Abre la URL que te muestra la terminal (normalmente `http://localhost:5173`).
-
-## 3. Guardarlo en Git local
+## 📦 Compilar para producción
 
 ```bash
-git init
-git add .
-git commit -m "MVP DreamTeam Finance - v0.2 con localStorage y fixes"
+npm run build
 ```
 
-## 4. Subirlo a GitHub
+Esto genera la carpeta `dist/` con los archivos finales (con nombres de
+archivo hasheados por Vite). **No edites `dist/index.html` a mano** —
+cualquier cambio ahí se pierde en el próximo build. Los cambios de
+contenido/branding van en el `index.html` fuente de la raíz del proyecto.
 
-1. Crea un repositorio vacío en GitHub (sin README, sin licencia).
-2. Conéctalo y sube tu código:
+## 🔒 Seguridad de datos
 
-```bash
-git branch -M main
-git remote add origin https://github.com/TU-USUARIO/dreamteam-finance.git
-git push -u origin main
-```
+Los datos financieros se guardan en una tabla `monthlydata` en Supabase,
+protegida con Row Level Security (RLS): cada usuario solo puede leer y
+escribir su propia fila. Antes de desplegar a producción, verifica las
+políticas RLS ejecutando las consultas de `RLS_SEGURIDAD.sql`.
 
-## 5. Desplegar en Vercel (cuando estés listo)
+## 📋 Pendientes conocidos (ver plan de proyecto)
 
-1. Entra a vercel.com con tu cuenta de GitHub.
-2. "Add New Project" → selecciona el repo `dreamteam-finance`.
-3. Framework preset: **Vite**. Build command: `npm run build`. Output: `dist`.
-4. Deploy. En minutos tienes una URL pública.
+- Integración de pagos (aún no implementada)
+- Borrado de cuenta/datos desde la UI
+- Conversión real de moneda (hoy el selector solo cambia el símbolo mostrado)
+- Tests automatizados de los cálculos financieros
 
-## 6. Base de datos y Autenticación con Supabase
+## 📄 Licencia / Legal
 
-La app utiliza **Supabase** para gestionar la autenticación de usuarios y la persistencia de datos en la nube:
+Términos de Servicio y Política de Privacidad en `/legal`. Revisar con
+un abogado antes de cobrar a usuarios reales.
 
-- **Auth**: Gestión de usuarios y sesiones activas.
-- **PostgreSQL Database**: Almacenamiento persistente de ingresos, gastos y presupuestos por usuario.
-- **Row Level Security (RLS)**: Políticas de seguridad para aislar los datos de cada usuario.
+---
+
+Desarrollado por Otto N. Manrique.
