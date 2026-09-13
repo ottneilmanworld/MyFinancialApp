@@ -1,6 +1,5 @@
-import React from 'react';
-import { TrendingUp, TrendingDown, Wallet, PieChart } from 'lucide-react';
-import { formatCurrency } from '../utils/formatters';
+import React, { useState } from 'react';
+import { PieChart, SlidersHorizontal } from 'lucide-react';
 
 // Colores del donut — mismo orden que la landing
 const SLICE_COLORS = [
@@ -19,8 +18,9 @@ const GAP_FRAC = 0.012; // pequeño espacio visual entre segmentos del aro
 
 /**
  * DonutDashboard
- * Replica el gráfico donut animado del hero de la landing page
- * directamente dentro de la app.
+ * Tarjeta de resumen mensual con un aro que se puede alternar entre:
+ *  - "budget"       -> cuánto llevas de cada presupuesto por categoría
+ *  - "distribution" -> cómo se reparte tu gasto total entre categorías
  *
  * Props:
  *  - currentMonthData : { incomes: [], expenses: [], budgets: {} }
@@ -34,18 +34,20 @@ export const DonutDashboard = ({
   currency,
   monthLabel,
 }) => {
-  const expenses      = currentMonthData.expenses || [];
-  const incomes       = currentMonthData.incomes  || [];
-  const totalIncome   = incomes.reduce((s, i) => s + i.amount, 0);
-  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
-  const available     = totalIncome - totalExpenses;
-  const budgets       = currentMonthData.budgets || {};
+  const expenses = currentMonthData.expenses || [];
+  const budgets  = currentMonthData.budgets  || {};
 
   // ── Categorías con presupuesto (hasta 6, una por color disponible) ──
-  const budgetCats = expenseCategories.filter(c => budgets[c] > 0).slice(0, 6);
+  const budgetCats  = expenseCategories.filter(c => budgets[c] > 0).slice(0, 6);
+  const hasBudgets  = budgetCats.length > 0;
   const totalBudget = budgetCats.reduce((s, c) => s + budgets[c], 0);
 
-  // ── Construir segmentos del ARO DE PRESUPUESTO ──────────────
+  // Qué aro se muestra: si ya tienes presupuestos, arrancamos mostrando
+  // ESE (para eso los configuraste); si no, mostramos la distribución.
+  const [viewMode, setViewMode] = useState(hasBudgets ? 'budget' : 'distribution');
+  const showingBudget = viewMode === 'budget' && hasBudgets;
+
+  // ── Segmentos del ARO DE PRESUPUESTO ─────────────────────────
   // Cada categoría ocupa una porción del círculo proporcional a
   // CUÁNTO dinero le asignaste (no una parte igual para todas).
   // Dentro de su porción, se rellena de color sólido según cuánto
@@ -76,17 +78,14 @@ export const DonutDashboard = ({
   });
 
   const totalSpentOnBudgeted = budgetSegments.reduce((s, seg) => s + seg.spent, 0);
-  const overallPct = totalBudget > 0 ? Math.round((totalSpentOnBudgeted / totalBudget) * 100) : 0;
+  const overallPct   = totalBudget > 0 ? Math.round((totalSpentOnBudgeted / totalBudget) * 100) : 0;
   const overallColor = overallPct > 100 ? '#F87171' : overallPct >= 80 ? '#FBBF24' : '#4ADE80';
 
-  // ── Datos del donut de RESPALDO (cuando no hay presupuestos) ─
-  // Muestra la distribución de gastos por categoría, como antes.
+  // ── Datos del ARO DE DISTRIBUCIÓN (gasto por categoría) ──────
   const catData = expenseCategories
     .map(cat => ({
       name: cat,
-      value: expenses
-        .filter(e => e.category === cat)
-        .reduce((s, e) => s + e.amount, 0),
+      value: expenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0),
     }))
     .filter(d => d.value > 0)
     .slice(0, 6);
@@ -108,71 +107,52 @@ export const DonutDashboard = ({
       ? `conic-gradient(${conicStops})`
       : 'conic-gradient(#374151 0% 100%)';
 
-  // ── KPIs ──────────────────────────────────────────────────
-  const kpis = [
-    {
-      label: 'Ingresos',
-      value: totalIncome,
-      Icon:  TrendingUp,
-      color: 'text-green-400',
-      ring:  'border-green-500/40',
-    },
-    {
-      label: 'Gastos',
-      value: totalExpenses,
-      Icon:  TrendingDown,
-      color: 'text-red-400',
-      ring:  'border-red-500/40',
-    },
-    {
-      label: 'Disponible',
-      value: available,
-      Icon:  Wallet,
-      color: available >= 0 ? 'text-cyan-400' : 'text-fuchsia-400',
-      ring:  available >= 0 ? 'border-cyan-500/40' : 'border-fuchsia-500/40',
-    },
-  ];
-
-  const hasBudgets = budgetCats.length > 0;
-
   return (
     <div className="bg-gray-900 rounded-xl border-2 border-cyan-500 p-5 mb-6">
 
       {/* ── Cabecera ─────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div>
           <p className="font-bold text-sm text-white">{monthLabel}</p>
           <p className="text-xs text-gray-400">Resumen mensual</p>
         </div>
-        <div className="flex items-center gap-1 rounded-full border border-gray-600 px-2 py-1 text-xs text-cyan-400">
-          {currency}
+
+        <div className="flex items-center gap-2">
+          {/* Botón para alternar entre los 2 aros — solo aparece si hay presupuestos */}
+          {hasBudgets && (
+            <div className="flex rounded-full border border-gray-600 overflow-hidden text-[11px]">
+              <button
+                onClick={() => setViewMode('budget')}
+                className={`px-3 py-1 flex items-center gap-1 transition-colors ${
+                  viewMode === 'budget' ? 'bg-cyan-500 text-black font-semibold' : 'text-gray-400 hover:text-white'
+                }`}
+                title="Ver avance de presupuestos"
+              >
+                <SlidersHorizontal size={11} /> Presupuesto
+              </button>
+              <button
+                onClick={() => setViewMode('distribution')}
+                className={`px-3 py-1 flex items-center gap-1 transition-colors ${
+                  viewMode === 'distribution' ? 'bg-cyan-500 text-black font-semibold' : 'text-gray-400 hover:text-white'
+                }`}
+                title="Ver distribución de gastos"
+              >
+                <PieChart size={11} /> Distribución
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-1 rounded-full border border-gray-600 px-2 py-1 text-xs text-cyan-400">
+            {currency}
+          </div>
         </div>
       </div>
 
-      {/* ── KPIs ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        {kpis.map(({ label, value, Icon, color, ring }) => (
-          <div
-            key={label}
-            className={`rounded-2xl border ${ring} bg-gray-800/60 p-3`}
-          >
-            <Icon className={`w-4 h-4 ${color}`} />
-            <p className="mt-2 text-[10px] uppercase tracking-wide text-gray-400">
-              {label}
-            </p>
-            <p className={`font-bold text-base ${color}`}>
-              {formatCurrency(value, currency)}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Donut + Barras ───────────────────────────────── */}
+      {/* ── Donut + Barras / Leyenda ─────────────────────── */}
       <div className="grid gap-4 rounded-2xl border border-gray-700 bg-gray-800/50 p-4 sm:grid-cols-[auto_1fr]">
 
         {/* Aro */}
         <div className="flex items-center justify-center relative">
-          {hasBudgets ? (
+          {showingBudget ? (
             // ── ARO DE PRESUPUESTO: cada porción = % del dinero
             // presupuestado en esa categoría; el relleno sólido =
             // cuánto llevas gastado de ese presupuesto.
@@ -213,13 +193,12 @@ export const DonutDashboard = ({
               aria-label="Gráfico de distribución de gastos por categoría"
             />
           )}
-          {hasBudgets && (
+          {showingBudget && (
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-lg font-bold" style={{ color: overallColor }}>{overallPct}%</span>
-              <span className="text-[9px] text-gray-400 uppercase tracking-wide">del presupuesto</span>
+              <span className="text-[9px] text-gray-400 uppercase tracking-wide text-center px-1">del presupuesto</span>
             </div>
           )}
-          {/* Keyframe inyectado inline — no necesita CSS externo */}
           <style>{`
             @keyframes breathe {
               0%, 100% { opacity: 0.55; }
@@ -228,30 +207,24 @@ export const DonutDashboard = ({
           `}</style>
         </div>
 
-        {/* Leyenda o barras de presupuesto */}
+        {/* Barras (presupuesto) o Leyenda (distribución) */}
         <div className="space-y-2">
           <p className="flex items-center gap-2 text-xs text-gray-400">
             <PieChart className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
-            {hasBudgets
-              ? 'Presupuestos por categoría'
-              : 'Distribución de gastos'}
+            {showingBudget ? 'Presupuestos por categoría' : 'Distribución de gastos'}
           </p>
 
-          {/* Si hay presupuestos → barras con el MISMO color que su porción del aro */}
-          {hasBudgets
+          {showingBudget
             ? budgetSegments.map(seg => {
-                const barCls = seg.isOver ? 'bg-red-500' : seg.isWarn ? 'bg-yellow-400' : '';
-                const txtCls = seg.isOver ? 'text-red-400' : seg.isWarn ? 'text-yellow-400' : 'text-gray-300';
+                const barCls   = seg.isOver ? 'bg-red-500' : seg.isWarn ? 'bg-yellow-400' : '';
+                const txtCls   = seg.isOver ? 'text-red-400' : seg.isWarn ? 'text-yellow-400' : 'text-gray-300';
                 const pctShown = Math.min(seg.spentPct * 100, 999);
 
                 return (
                   <div key={seg.name}>
                     <div className="flex justify-between text-[11px] text-gray-400 mb-1">
                       <span className="flex items-center gap-1.5 truncate max-w-[140px]">
-                        <span
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ background: seg.color }}
-                        />
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: seg.color }} />
                         {seg.name}
                       </span>
                       <span className={txtCls}>{pctShown.toFixed(0)}%</span>
@@ -270,21 +243,29 @@ export const DonutDashboard = ({
                   </div>
                 );
               })
-            // Si no hay presupuestos → leyenda del donut de gastos
-            : catData.slice(0, 5).map((d, i) => (
-                <div key={d.name} className="flex items-center gap-2 text-xs">
-                  <div
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                    style={{ background: SLICE_COLORS[i % SLICE_COLORS.length] }}
-                  />
-                  <span className="text-gray-300 flex-1 truncate">{d.name}</span>
-                  <span className="text-gray-400 font-semibold">
-                    {((d.value / total) * 100).toFixed(0)}%
-                  </span>
-                </div>
-              ))}
+            : catData.slice(0, 6).map((d, i) => {
+                const pct = (d.value / total) * 100;
+                const color = SLICE_COLORS[i % SLICE_COLORS.length];
+                return (
+                  <div key={d.name}>
+                    <div className="flex justify-between text-[11px] text-gray-400 mb-1">
+                      <span className="flex items-center gap-1.5 truncate max-w-[140px]">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+                        {d.name}
+                      </span>
+                      <span className="text-gray-300">{pct.toFixed(0)}%</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-gray-700">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${pct}%`, background: color }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
 
-          {!hasBudgets && catData.length === 0 && (
+          {!showingBudget && catData.length === 0 && (
             <p className="text-xs text-gray-500 italic">Sin gastos este mes</p>
           )}
         </div>
