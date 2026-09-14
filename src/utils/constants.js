@@ -57,5 +57,6 @@ export const BUDGET_SUGGESTIONS = {
   'Salud': 0.05,
   'Comer Fuera y Antojos': 0.10,
   'Telecomunicaciones y Suscripciones': 0.10,
+  'Telecomunicaciones y Subscripciones': 0.10, // variante de ortografía (con "b"), por si la escribiste así
   'Entretenimiento y Ocio': 0.10,
 };

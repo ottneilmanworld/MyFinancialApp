@@ -8,12 +8,19 @@ const SLICE_COLORS = [
   '#D97B5B', // terracota
   '#D9A441', // ámbar suave
   '#A9C2D6', // azul claro
+  '#C46B6B', // rojo ladrillo
+  '#8A6FB0', // lavanda
+  '#5FA8A0', // turquesa
+  '#B8925A', // ocre
   '#8A8578', // gris cálido
 ];
 
-const RADIUS = 50;
-const STROKE = 14;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const OUTER_RADIUS = 54;
+const OUTER_STROKE = 4;   // borde delgado, SIEMPRE visible con color fuerte
+const INNER_RADIUS = 45;
+const INNER_STROKE = 13;  // relleno grueso, crece según gastas
+const OUTER_CIRC = 2 * Math.PI * OUTER_RADIUS;
+const INNER_CIRC = 2 * Math.PI * INNER_RADIUS;
 const GAP_FRAC = 0.012; // pequeño espacio visual entre segmentos del aro
 
 /**
@@ -38,7 +45,7 @@ export const DonutDashboard = ({
   const budgets  = currentMonthData.budgets  || {};
 
   // ── Categorías con presupuesto (hasta 6, una por color disponible) ──
-  const budgetCats  = expenseCategories.filter(c => budgets[c] > 0).slice(0, 6);
+  const budgetCats  = expenseCategories.filter(c => budgets[c] > 0);
   const hasBudgets  = budgetCats.length > 0;
   const totalBudget = budgetCats.reduce((s, c) => s + budgets[c], 0);
 
@@ -88,7 +95,7 @@ export const DonutDashboard = ({
       value: expenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0),
     }))
     .filter(d => d.value > 0)
-    .slice(0, 6);
+    .slice(0, 10);
 
   const total = catData.reduce((s, d) => s + d.value, 0) || 1;
 
@@ -160,21 +167,34 @@ export const DonutDashboard = ({
               <g transform="rotate(-90 60 60)">
                 {budgetSegments.map(seg => (
                   <React.Fragment key={seg.name}>
+                    {/* Borde exterior: SIEMPRE muestra el tamaño completo
+                        de la categoría, en su color fuerte y vivo. */}
                     <circle
-                      cx="60" cy="60" r={RADIUS} fill="none"
+                      cx="60" cy="60" r={OUTER_RADIUS} fill="none"
                       stroke={seg.color}
-                      strokeOpacity="0.22"
-                      strokeWidth={STROKE}
-                      strokeDasharray={`${seg.drawFrac * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
-                      strokeDashoffset={-seg.startFrac * CIRCUMFERENCE}
+                      strokeWidth={OUTER_STROKE}
+                      strokeDasharray={`${seg.drawFrac * OUTER_CIRC} ${OUTER_CIRC}`}
+                      strokeDashoffset={-seg.startFrac * OUTER_CIRC}
                     />
+                    {/* Pista interior vacía: el "molde" apagado que se
+                        va a ir rellenando según gastas. */}
                     <circle
-                      cx="60" cy="60" r={RADIUS} fill="none"
+                      cx="60" cy="60" r={INNER_RADIUS} fill="none"
                       stroke={seg.color}
-                      strokeWidth={STROKE}
-                      strokeLinecap="round"
-                      strokeDasharray={`${seg.filledFrac * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
-                      strokeDashoffset={-seg.startFrac * CIRCUMFERENCE}
+                      strokeOpacity="0.18"
+                      strokeWidth={INNER_STROKE}
+                      strokeDasharray={`${seg.drawFrac * INNER_CIRC} ${INNER_CIRC}`}
+                      strokeDashoffset={-seg.startFrac * INNER_CIRC}
+                    />
+                    {/* Relleno interior: crece de 0% a 100% del ancho de
+                        la sección según cuánto llevas gastado. */}
+                    <circle
+                      cx="60" cy="60" r={INNER_RADIUS} fill="none"
+                      stroke={seg.color}
+                      strokeOpacity="0.75"
+                      strokeWidth={INNER_STROKE}
+                      strokeDasharray={`${seg.filledFrac * INNER_CIRC} ${INNER_CIRC}`}
+                      strokeDashoffset={-seg.startFrac * INNER_CIRC}
                     />
                   </React.Fragment>
                 ))}
@@ -243,7 +263,7 @@ export const DonutDashboard = ({
                   </div>
                 );
               })
-            : catData.slice(0, 6).map((d, i) => {
+            : catData.slice(0, 10).map((d, i) => {
                 const pct = (d.value / total) * 100;
                 const color = SLICE_COLORS[i % SLICE_COLORS.length];
                 return (
