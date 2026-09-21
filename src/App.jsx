@@ -27,6 +27,7 @@ import { GraphsCollapsible } from './components/GraphsCollapsible';
 // Componentes NUEVOS (créalos en Pasos 2, 3 y 4)
 import { DonutDashboard }   from './components/DonutDashboard';
 import { CurrencyConverter } from './components/CurrencyConverter';
+import { TranquiLogo } from './components/TranquiLogo';
 import { ConfirmDialog }    from './components/ConfirmDialog';
 import { Toast, useToast }  from './components/Toast';
 
@@ -622,13 +623,15 @@ const DreamTeamFinanceApp = () => {
       {/* ── Header ──────────────────────────────────────────── */}
       <header className="static-header p-8 shadow-lg">
         <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-5xl font-black text-white tracking-wide" style={{ textShadow: '3px 3px 6px rgba(0,0,0,.8)' }}>
-            My Finance App
-          </h1>
+          <div className="flex items-center justify-center gap-3">
+            <TranquiLogo size={56} />
+            <h1 className="text-5xl font-black text-white tracking-wide" style={{ textShadow: '3px 3px 6px rgba(0,0,0,.8)' }}>
+              Tranqui Finanzas
+            </h1>
+          </div>
           <p className="text-white text-xl mt-2 font-bold subtitle-text-shadow">
-            Gestor de Finanzas Personales
+            Tu dinero ya no es un problema. Ni una fuente de estrés.
           </p>
-          <p className="text-lg mt-2 font-semibold author-text-glow">By Otto N. Manrique</p>
           <p className="text-gray-300 text-sm mt-2">Usuario: {session?.user?.email}</p>
         </div>
       </header>
@@ -930,7 +933,8 @@ const DreamTeamFinanceApp = () => {
 
       {/* ── Footer ─────────────────────────────────────────── */}
       <footer className="bg-gray-900 p-6 text-center text-gray-500 text-sm mt-8 border-t border-gray-800">
-        <p>© {new Date().getFullYear()} My Finance App — DreamTeam Finance. Todos los derechos reservados.</p>
+        <p className="text-gray-400 font-semibold mb-1">By Otto N. Manrique</p>
+        <p>© {new Date().getFullYear()} Tranqui Finanzas. Todos los derechos reservados.</p>
       </footer>
     </div>
   );
