@@ -26,6 +26,7 @@ import { GraphsCollapsible } from './components/GraphsCollapsible';
 
 // Componentes NUEVOS (créalos en Pasos 2, 3 y 4)
 import { DonutDashboard }   from './components/DonutDashboard';
+import { CurrencyConverter } from './components/CurrencyConverter';
 import { ConfirmDialog }    from './components/ConfirmDialog';
 import { Toast, useToast }  from './components/Toast';
 
@@ -322,6 +323,7 @@ const DreamTeamFinanceApp = () => {
   const [showIncomeCategoryManager,  setShowIncomeCategoryManager]  = useState(false);
   const [showExpenseCategoryManager, setShowExpenseCategoryManager] = useState(false);
   const [showBudgetManager,        setShowBudgetManager]       = useState(false);
+  const [showConverter,            setShowConverter]           = useState(false);
   const [editingIncome,            setEditingIncome]           = useState(null);
   const [editingExpense,           setEditingExpense]          = useState(null);
 
@@ -598,6 +600,13 @@ const DreamTeamFinanceApp = () => {
             <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
           ))}
         </select>
+        <button
+          onClick={() => setShowConverter(true)}
+          className="text-xs bg-gray-800 hover:bg-gray-700 text-cyan-300 px-2 py-1 rounded border border-gray-600"
+          title="Conversor de moneda"
+        >
+          🔄 Conversor
+        </button>
         {syncStatus === 'synced' && <span className="text-green-400">✅ Sincronizado</span>}
         {syncStatus === 'pending' && <span className="text-yellow-400">⏳ Guardando...</span>}
         {syncStatus === 'error'   && <span className="text-red-400">⚠️ Offline (local)</span>}
@@ -916,6 +925,8 @@ const DreamTeamFinanceApp = () => {
         isIncome={false}
         currency={currency}
       />
+
+      <CurrencyConverter show={showConverter} onClose={() => setShowConverter(false)} />
 
       {/* ── Footer ─────────────────────────────────────────── */}
       <footer className="bg-gray-900 p-6 text-center text-gray-500 text-sm mt-8 border-t border-gray-800">
