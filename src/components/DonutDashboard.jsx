@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PieChart, SlidersHorizontal } from 'lucide-react';
+import { formatCurrency } from '../utils/formatters';
 
 // Colores del donut — mismo orden que la landing
 const SLICE_COLORS = [
@@ -52,6 +53,7 @@ export const DonutDashboard = ({
   // Qué aro se muestra: si ya tienes presupuestos, arrancamos mostrando
   // ESE (para eso los configuraste); si no, mostramos la distribución.
   const [viewMode, setViewMode] = useState(hasBudgets ? 'budget' : 'distribution');
+  const [hoveredCat, setHoveredCat] = useState(null);
   const showingBudget = viewMode === 'budget' && hasBudgets;
 
   // ── Segmentos del ARO DE PRESUPUESTO ─────────────────────────
@@ -196,6 +198,20 @@ export const DonutDashboard = ({
                       strokeDasharray={`${seg.filledFrac * INNER_CIRC} ${INNER_CIRC}`}
                       strokeDashoffset={-seg.startFrac * INNER_CIRC}
                     />
+                    {/* Zona invisible más ancha, SOLO para detectar el
+                        mouse/dedo fácilmente sin necesitar precisión. */}
+                    <circle
+                      cx="60" cy="60" r={(OUTER_RADIUS + INNER_RADIUS) / 2}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth={OUTER_STROKE + INNER_STROKE + 6}
+                      strokeDasharray={`${seg.drawFrac * OUTER_CIRC} ${OUTER_CIRC}`}
+                      strokeDashoffset={-seg.startFrac * OUTER_CIRC}
+                      style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
+                      onMouseEnter={() => setHoveredCat(seg.name)}
+                      onMouseLeave={() => setHoveredCat(null)}
+                      onClick={() => setHoveredCat(hoveredCat === seg.name ? null : seg.name)}
+                    />
                   </React.Fragment>
                 ))}
               </g>
@@ -214,9 +230,32 @@ export const DonutDashboard = ({
             />
           )}
           {showingBudget && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-lg font-bold" style={{ color: overallColor }}>{overallPct}%</span>
-              <span className="text-[9px] text-gray-400 uppercase tracking-wide text-center px-1">del presupuesto</span>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-3 text-center">
+              {hoveredCat ? (
+                (() => {
+                  const seg = budgetSegments.find(s => s.name === hoveredCat);
+                  if (!seg) return null;
+                  const pctShown = Math.round(seg.spentPct * 100);
+                  return (
+                    <>
+                      <span className="text-[10px] font-semibold text-gray-100 leading-tight break-words max-w-[85px]">
+                        {seg.name}
+                      </span>
+                      <span className="text-base font-bold" style={{ color: seg.color }}>
+                        {pctShown}%
+                      </span>
+                      <span className="text-[8px] text-gray-400">
+                        {formatCurrency(seg.spent, currency)} / {formatCurrency(seg.limit, currency)}
+                      </span>
+                    </>
+                  );
+                })()
+              ) : (
+                <>
+                  <span className="text-lg font-bold" style={{ color: overallColor }}>{overallPct}%</span>
+                  <span className="text-[9px] text-gray-400 uppercase tracking-wide text-center px-1">del presupuesto</span>
+                </>
+              )}
             </div>
           )}
           <style>{`
