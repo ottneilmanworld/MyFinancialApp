@@ -27,6 +27,7 @@ export const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, i
     .filter(item => item.value > 0);
 
   const monthlyComparison = Object.entries(monthlyData)
+    .filter(([, data]) => (data.incomes && data.incomes.length > 0) || (data.expenses && data.expenses.length > 0))
     .sort(([keyA], [keyB]) => {
       const [yA, mA] = keyA.split('-').map(Number);
       const [yB, mB] = keyB.split('-').map(Number);
@@ -132,6 +133,8 @@ export const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, i
                           borderRadius: '8px',
                           color: '#F9FAFB'
                         }}
+                        itemStyle={{ color: '#F9FAFB' }}
+                        labelStyle={{ color: '#F9FAFB' }}
                         formatter={(value) => formatCurrency(value, currency)}
                       />
                     </PieChart>
@@ -169,6 +172,8 @@ export const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, i
                           borderRadius: '8px',
                           color: '#F9FAFB'
                         }}
+                        itemStyle={{ color: '#F9FAFB' }}
+                        labelStyle={{ color: '#F9FAFB' }}
                         formatter={(value) => formatCurrency(value, currency)}
                       />
                     </PieChart>
@@ -200,6 +205,8 @@ export const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, i
                         borderRadius: '8px',
                         color: '#F9FAFB'
                       }}
+                      itemStyle={{ color: '#F9FAFB' }}
+                      labelStyle={{ color: '#F9FAFB' }}
                       formatter={(value) => formatCurrency(value, currency)}
                     />
                     <Bar dataKey="value" />
@@ -224,6 +231,8 @@ export const GraphsCollapsible = ({ monthlyData, currentMonthData, categories, i
                           borderRadius: '8px',
                           color: '#F9FAFB'
                         }}
+                        itemStyle={{ color: '#F9FAFB' }}
+                        labelStyle={{ color: '#F9FAFB' }}
                         formatter={(value) => formatCurrency(value, currency)}
                       />
                       <Legend />
